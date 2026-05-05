@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import { Grid2X2, ListTree, Search } from "lucide-react";
 import IconButton from "../../components/IconButton.jsx";
 import StateMessage from "../../components/StateMessage.jsx";
+import TypewriterTitle from "../../components/TypewriterTitle.jsx";
 import GridView from "./components/GridView.jsx";
 import TagFilter from "./components/TagFilter.jsx";
 import TimelineView from "./components/TimelineView.jsx";
@@ -12,6 +13,7 @@ export default function PostIndex({ navigate }) {
   const [view, setView] = useState("grid");
   const [query, setQuery] = useState("");
   const [activeTag, setActiveTag] = useState("All");
+  const heroTitle = "Whisper words of wisdom";
 
   const tags = useMemo(() => {
     const tagSet = new Set(posts.flatMap((post) => post.tags));
@@ -31,9 +33,10 @@ export default function PostIndex({ navigate }) {
     <section className="relative z-10 mx-auto max-w-6xl px-5 py-12">
       <div className="grid gap-8 border-b border-black pb-10 lg:grid-cols-[1fr_360px]">
         <div>
-          <h1 className="max-w-3xl text-5xl font-semibold leading-[0.96] md:text-7xl">
-            Project notes that read like a clean technical blog.
-          </h1>
+          <TypewriterTitle
+            className="min-h-[9.5rem] max-w-3xl text-5xl font-semibold leading-[0.96] md:min-h-[8.75rem] md:text-7xl"
+            text={heroTitle}
+          />
           <p className="mt-6 max-w-2xl text-base leading-7 text-neutral-700">
             A backend-first Markdown publishing system for project descriptions, diagrams,
             graph notes, images, tags, filters, timelines, and direct post links.
