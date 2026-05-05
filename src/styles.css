@@ -1,0 +1,245 @@
+@font-face {
+  font-display: swap;
+  font-family: "Inter";
+  font-style: normal;
+  font-weight: 400;
+  src: url("../node_modules/@fontsource/inter/files/inter-latin-400-normal.woff2") format("woff2");
+}
+
+@font-face {
+  font-display: swap;
+  font-family: "Inter";
+  font-style: normal;
+  font-weight: 500;
+  src: url("../node_modules/@fontsource/inter/files/inter-latin-500-normal.woff2") format("woff2");
+}
+
+@font-face {
+  font-display: swap;
+  font-family: "Inter";
+  font-style: normal;
+  font-weight: 600;
+  src: url("../node_modules/@fontsource/inter/files/inter-latin-600-normal.woff2") format("woff2");
+}
+
+@font-face {
+  font-display: swap;
+  font-family: "Inter";
+  font-style: normal;
+  font-weight: 700;
+  src: url("../node_modules/@fontsource/inter/files/inter-latin-700-normal.woff2") format("woff2");
+}
+
+@font-face {
+  font-display: swap;
+  font-family: "JetBrains Mono";
+  font-style: normal;
+  font-weight: 400;
+  src: url("../node_modules/@fontsource/jetbrains-mono/files/jetbrains-mono-latin-400-normal.woff2") format("woff2");
+}
+
+@font-face {
+  font-display: swap;
+  font-family: "JetBrains Mono";
+  font-style: normal;
+  font-weight: 500;
+  src: url("../node_modules/@fontsource/jetbrains-mono/files/jetbrains-mono-latin-500-normal.woff2") format("woff2");
+}
+
+@font-face {
+  font-display: swap;
+  font-family: "JetBrains Mono";
+  font-style: normal;
+  font-weight: 600;
+  src: url("../node_modules/@fontsource/jetbrains-mono/files/jetbrains-mono-latin-600-normal.woff2") format("woff2");
+}
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: light;
+  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  background: #ffffff;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-width: 320px;
+  background: #ffffff;
+}
+
+button,
+input {
+  font: inherit;
+}
+
+.prose-core {
+  color: #000000;
+  font-size: 1rem;
+  line-height: 1.8;
+}
+
+.prose-core > * + * {
+  margin-top: 1.4rem;
+}
+
+.prose-core h2 {
+  border-top: 1px solid #000000;
+  font-size: clamp(2rem, 5vw, 3.5rem);
+  font-weight: 650;
+  line-height: 1;
+  margin-top: 3rem;
+  padding-top: 2rem;
+}
+
+.prose-core h3 {
+  font-size: 1.5rem;
+  font-weight: 650;
+  line-height: 1.15;
+  margin-top: 2.5rem;
+}
+
+.prose-core p,
+.prose-core li {
+  color: #333333;
+}
+
+.prose-core a {
+  color: #000000;
+  text-decoration: underline;
+  text-underline-offset: 4px;
+}
+
+.prose-core ul,
+.prose-core ol {
+  padding-left: 1.25rem;
+}
+
+.prose-core blockquote {
+  border-left: 1px solid #000000;
+  color: #333333;
+  margin-left: 0;
+  padding: 1rem 0 1rem 1.5rem;
+}
+
+.prose-core pre,
+.prose-core .diagram,
+.chart-shell {
+  background: #ffffff;
+  border: 1px solid #000000;
+  overflow-x: auto;
+  padding: 1.25rem;
+}
+
+.prose-core code {
+  background: #f3f3f3;
+  border: 1px solid #d7d7d7;
+  color: #000000;
+  font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+  font-size: 0.9em;
+  padding: 0.1rem 0.3rem;
+}
+
+.prose-core pre code {
+  background: transparent;
+  border: 0;
+  display: block;
+  padding: 0;
+}
+
+.prose-core img {
+  border: 1px solid #000000;
+  display: block;
+  height: auto;
+  max-width: 100%;
+}
+
+.prose-core table {
+  border-collapse: collapse;
+  width: 100%;
+}
+
+.prose-core th,
+.prose-core td {
+  border: 1px solid #000000;
+  padding: 0.8rem;
+  text-align: left;
+}
+
+.prose-core hr {
+  border: 0;
+  border-top: 1px solid #000000;
+  margin: 3rem 0;
+}
+
+.chart-shell {
+  margin: 2rem 0;
+}
+
+.chart-caption {
+  align-items: baseline;
+  border-bottom: 1px solid #000000;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  justify-content: space-between;
+  margin: -1.25rem -1.25rem 1.25rem;
+  padding: 0.9rem 1.25rem;
+}
+
+.chart-caption strong {
+  color: #000000;
+  font-size: 0.88rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.chart-caption span {
+  color: #555555;
+  font-size: 0.82rem;
+}
+
+.chart-stage {
+  height: 320px;
+  min-width: 520px;
+}
+
+.chart-stage text {
+  fill: #000000;
+  font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+  font-size: 12px;
+}
+
+.chart-tooltip {
+  background: #ffffff;
+  border: 1px solid #000000;
+  color: #000000;
+  display: grid;
+  gap: 0.25rem;
+  padding: 0.6rem 0.75rem;
+}
+
+.chart-tooltip span {
+  color: #555555;
+  font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+  font-size: 0.72rem;
+  text-transform: uppercase;
+}
+
+.chart-tooltip strong {
+  font-size: 1rem;
+}
+
+@media (max-width: 640px) {
+  .chart-stage {
+    height: 280px;
+    min-width: 420px;
+  }
+}
