@@ -1,5 +1,5 @@
-import { useMemo, useState } from "react";
-import { Grid2X2, ListTree, Search } from "lucide-react";
+import { lazy, Suspense, useMemo, useState } from "react";
+import { GitGraph, Grid2X2, ListTree, Search } from "lucide-react";
 import IconButton from "../../components/IconButton.jsx";
 import StateMessage from "../../components/StateMessage.jsx";
 import TypewriterTitle from "../../components/TypewriterTitle.jsx";
@@ -7,6 +7,8 @@ import GridView from "./components/GridView.jsx";
 import TagFilter from "./components/TagFilter.jsx";
 import TimelineView from "./components/TimelineView.jsx";
 import { usePosts } from "./hooks.js";
+
+const GraphView = lazy(() => import("./components/GraphView.jsx"));
 
 export default function PostIndex({ navigate }) {
   const { posts, loading, error } = usePosts();
@@ -78,6 +80,13 @@ export default function PostIndex({ navigate }) {
           >
             <ListTree className="h-4 w-4" />
           </IconButton>
+          <IconButton
+            active={view === "graph"}
+            label="Graph view"
+            onClick={() => setView("graph")}
+          >
+            <GitGraph className="h-4 w-4" />
+          </IconButton>
         </div>
       </div>
 
@@ -93,6 +102,17 @@ export default function PostIndex({ navigate }) {
       )}
       {!loading && !error && view === "timeline" && (
         <TimelineView posts={filteredPosts} navigate={navigate} />
+      )}
+      {!loading && !error && view === "graph" && (
+        <Suspense
+          fallback={
+            <div className="mt-8 flex h-[420px] items-center justify-center border border-black bg-white">
+              <p className="text-sm text-neutral-600">Loading graph...</p>
+            </div>
+          }
+        >
+          <GraphView posts={filteredPosts} navigate={navigate} />
+        </Suspense>
       )}
     </section>
   );

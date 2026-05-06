@@ -76,7 +76,7 @@ async function loadMermaid() {
           lineColor: "#000000",
           secondaryColor: "#f5f5f5",
           tertiaryColor: "#ffffff",
-          fontFamily: "Inter, system-ui, sans-serif"
+          fontFamily: "system-ui, sans-serif"
         }
       });
       return mermaid;
