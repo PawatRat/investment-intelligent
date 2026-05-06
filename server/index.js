@@ -1,5 +1,6 @@
 import express from "express";
 import fs from "node:fs/promises";
+import multer from "multer";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -14,6 +15,54 @@ const port = process.env.PORT || 3001;
 
 app.use(express.json({ limit: "2mb" }));
 app.use("/uploads", express.static(uploadsDir));
+
+const upload = multer({
+  storage: multer.diskStorage({
+    destination: async (_request, _file, callback) => {
+      await fs.mkdir(uploadsDir, { recursive: true });
+      callback(null, uploadsDir);
+    },
+    filename: (_request, file, callback) => {
+      const timestamp = Date.now();
+      const ext = path.extname(file.originalname).toLowerCase();
+      const base = path.basename(file.originalname, ext).replace(/[^a-z0-9]+/gi, "-").replace(/^-|-$/g, "").slice(0, 40);
+      callback(null, `${base || "upload"}-${timestamp}${ext}`);
+    }
+  }),
+  limits: { fileSize: 5 * 1024 * 1024 }, // 5 MB
+  fileFilter: (_request, file, callback) => {
+    const allowed = ["image/jpeg", "image/png", "image/gif", "image/webp", "image/svg+xml"];
+    if (allowed.includes(file.mimetype)) {
+      callback(null, true);
+    } else {
+      callback(new Error("Only images are allowed (jpeg, png, gif, webp, svg)"), false);
+    }
+  }
+});
+
+app.post("/api/upload", upload.single("image"), (request, response) => {
+  if (!request.file) {
+    response.status(400).json({ error: "No image provided" });
+    return;
+  }
+  response.json({ url: `/uploads/${request.file.filename}` });
+});
+
+app.use((error, _request, response, next) => {
+  if (error instanceof multer.MulterError) {
+    if (error.code === "LIMIT_FILE_SIZE") {
+      response.status(413).json({ error: "File too large (max 5 MB)" });
+      return;
+    }
+    response.status(400).json({ error: error.message });
+    return;
+  }
+  if (error.message && error.message.includes("Only images are allowed")) {
+    response.status(400).json({ error: error.message });
+    return;
+  }
+  next(error);
+});
 
 function slugify(value) {
   return String(value)
