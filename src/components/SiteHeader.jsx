@@ -2,25 +2,25 @@ import { siteConfig } from "../config/site.js";
 
 export default function SiteHeader({ navigate }) {
   return (
-    <header className="relative z-10 border-b border-black bg-white/90">
-      <div className="mx-auto flex max-w-6xl items-center justify-between px-5 py-5">
+    <header className="sticky top-0 z-50 border-b border-neutral-100 bg-white/70 backdrop-blur-md">
+      <div className="mx-auto flex max-w-6xl items-center justify-between px-5 py-4">
         <button
-          className="group flex items-center gap-3 text-left"
+          className="group flex items-center gap-3 text-left transition-opacity hover:opacity-80"
           onClick={() => navigate("/")}
           type="button"
         >
-          <span className="grid h-9 w-9 place-items-center border border-black bg-black text-white">
+          <span className="grid h-10 w-10 place-items-center bg-neutral-900 text-white shadow-sm">
             {siteConfig.initials}
           </span>
           <span>
-            <span className="block text-sm font-semibold uppercase tracking-[0.18em]">
+            <span className="block text-sm font-semibold tracking-wide text-neutral-900">
               {siteConfig.name}
             </span>
-            <span className="block text-xs text-neutral-600">{siteConfig.tagline}</span>
+            <span className="block text-xs text-neutral-500">{siteConfig.tagline}</span>
           </span>
         </button>
-        <span className="hidden border border-black px-3 py-2 text-xs uppercase tracking-[0.16em] sm:block">
-          White / Black / Dots
+        <span className="hidden border border-neutral-200 bg-neutral-50/50 px-4 py-1.5 text-[11px] font-medium tracking-widest text-neutral-500 uppercase sm:block">
+          Minimal Edition
         </span>
       </div>
     </header>

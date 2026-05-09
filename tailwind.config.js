@@ -4,11 +4,12 @@ export default {
   theme: {
     extend: {
       fontFamily: {
-        sans: ["system-ui", "-apple-system", "BlinkMacSystemFont", "Segoe UI", "Roboto", "Helvetica Neue", "Arial", "sans-serif"],
+        sans: ["Inter", "system-ui", "-apple-system", "BlinkMacSystemFont", "Segoe UI", "Roboto", "Helvetica Neue", "Arial", "sans-serif"],
+        serif: ["ui-serif", "Georgia", "Cambria", '"Times New Roman"', "Times", "serif"],
         mono: ["JetBrains Mono", "ui-monospace", "SFMono-Regular", "monospace"]
       },
       backgroundImage: {
-        dots: "radial-gradient(circle, rgba(0,0,0,0.16) 1px, transparent 1px)"
+        dots: "radial-gradient(circle, rgba(0,0,0,0.05) 1px, transparent 1px)"
       }
     }
   },

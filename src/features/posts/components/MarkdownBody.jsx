@@ -10,7 +10,7 @@ export default function MarkdownBody({ markdown, slug }) {
   const sections = useMemo(() => parseMarkdownSections(markdown), [markdown]);
 
   return (
-    <div className="prose-core mt-10">
+    <div className="prose-core mt-16">
       {sections.map((section, index) => {
         if (section.type === "chart") {
           return (

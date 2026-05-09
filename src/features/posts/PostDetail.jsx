@@ -28,18 +28,18 @@ export default function PostDetail({ slug, navigate }) {
   return (
     <article className="relative z-10 mx-auto max-w-4xl px-5 py-12">
       <BackButton navigate={navigate} />
-      <header className="border-b border-black pb-8">
-        <time className="text-xs font-semibold uppercase tracking-[0.16em] text-neutral-600">
+      <header className="border-b border-neutral-100 pb-12">
+        <time className="text-[13px] font-medium text-neutral-500">
           {formatPostDate(post.date)} / {post.readingMinutes} min read
         </time>
-        <h1 className="mt-4 text-5xl font-semibold leading-none md:text-7xl">{post.title}</h1>
+        <h1 className="font-serif mt-5 text-4xl font-normal tracking-tight text-neutral-900 md:text-5xl md:leading-tight">{post.title}</h1>
         <p className="mt-5 text-lg leading-8 text-neutral-700">{post.description}</p>
         <TagList tags={post.tags} />
       </header>
       {post.coverImage && (
         <img
           alt=""
-          className="mt-8 aspect-[16/9] w-full border border-black object-cover"
+          className="mt-12 aspect-[16/9] w-full border border-neutral-100 object-cover shadow-sm"
           src={post.coverImage}
         />
       )}
@@ -50,7 +50,7 @@ export default function PostDetail({ slug, navigate }) {
 
 function BackButton({ navigate }) {
   return (
-    <button className="mb-8 inline-flex items-center gap-2 text-sm" onClick={() => navigate("/")}>
+    <button className="mb-8 inline-flex items-center gap-2 text-[13px] font-medium text-neutral-500 transition-colors hover:text-neutral-900" onClick={() => navigate("/")}>
       <ArrowLeft className="h-4 w-4" /> Back to index
     </button>
   );

@@ -60,7 +60,7 @@
 
 :root {
   color-scheme: light;
-  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  font-family: "Inter", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
   background: #ffffff;
 }
 
@@ -80,8 +80,9 @@ input {
 }
 
 .prose-core {
-  color: #000000;
-  font-size: 1rem;
+  color: #334155;
+  font-family: ui-serif, Georgia, Cambria, "Times New Roman", Times, serif;
+  font-size: 1.125rem;
   line-height: 1.8;
 }
 
@@ -90,29 +91,34 @@ input {
 }
 
 .prose-core h2 {
-  border-top: 1px solid #000000;
-  font-size: clamp(2rem, 5vw, 3.5rem);
-  font-weight: 600;
+  border-top: 1px solid #e2e8f0;
+  color: #0f172a;
+  font-size: clamp(1.75rem, 4vw, 2.5rem);
+  font-weight: 500;
   line-height: 1;
-  margin-top: 3rem;
+  margin-bottom: 1.5rem;
+  margin-top: 3.5rem;
   padding-top: 2rem;
 }
 
 .prose-core h3 {
-  font-size: 1.5rem;
-  font-weight: 600;
+  color: #0f172a;
+  font-size: 1.25rem;
+  font-weight: 500;
   line-height: 1.15;
+  margin-bottom: 1rem;
   margin-top: 2.5rem;
 }
 
 .prose-core p,
 .prose-core li {
-  color: #333333;
+  color: #475569;
 }
 
 .prose-core a {
-  color: #000000;
+  color: #0f172a;
   text-decoration: underline;
+  text-decoration-color: #cbd5e1;
   text-underline-offset: 4px;
 }
 
@@ -122,28 +128,29 @@ input {
 }
 
 .prose-core blockquote {
-  border-left: 1px solid #000000;
-  color: #333333;
+  background: #f8fafc;
+  border-left: 4px solid #cbd5e1;
+  color: #475569;
   margin-left: 0;
-  padding: 1rem 0 1rem 1.5rem;
+  padding: 1rem 1.5rem;
 }
 
 .prose-core pre,
 .prose-core .diagram,
 .chart-shell {
-  background: #ffffff;
-  border: 1px solid #000000;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
   overflow-x: auto;
   padding: 1.25rem;
 }
 
 .prose-core code {
-  background: #f3f3f3;
-  border: 1px solid #d7d7d7;
-  color: #000000;
+  background: #f1f5f9;
+  border: 1px solid #e2e8f0;
+  color: #0f172a;
   font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
   font-size: 0.9em;
-  padding: 0.1rem 0.3rem;
+  padding: 0.2rem 0.4rem;
 }
 
 .prose-core pre code {
@@ -154,7 +161,7 @@ input {
 }
 
 .prose-core img {
-  border: 1px solid #000000;
+  box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
   display: block;
   height: auto;
   max-width: 100%;
@@ -167,14 +174,14 @@ input {
 
 .prose-core th,
 .prose-core td {
-  border: 1px solid #000000;
+  border: 1px solid #e2e8f0;
   padding: 0.8rem;
   text-align: left;
 }
 
 .prose-core hr {
   border: 0;
-  border-top: 1px solid #000000;
+  border-top: 1px solid #e2e8f0;
   margin: 3rem 0;
 }
 
@@ -184,7 +191,7 @@ input {
 
 .chart-caption {
   align-items: baseline;
-  border-bottom: 1px solid #000000;
+  border-bottom: 1px solid #e2e8f0;
   display: flex;
   flex-wrap: wrap;
   gap: 0.75rem;
@@ -219,8 +226,9 @@ input {
 
 .chart-tooltip {
   background: #ffffff;
-  border: 1px solid #000000;
-  color: #000000;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);
+  color: #0f172a;
   display: grid;
   gap: 0.25rem;
   padding: 0.6rem 0.75rem;
