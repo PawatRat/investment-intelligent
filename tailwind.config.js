@@ -9,7 +9,7 @@ export default {
         mono: ["JetBrains Mono", "ui-monospace", "SFMono-Regular", "monospace"]
       },
       backgroundImage: {
-        dots: "radial-gradient(circle, rgba(0,0,0,0.05) 1px, transparent 1px)"
+        dots: "radial-gradient(circle, rgba(0,0,0,0.025) 1px, transparent 1px)"
       }
     }
   },
