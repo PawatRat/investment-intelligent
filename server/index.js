@@ -9,6 +9,7 @@ const __dirname = path.dirname(__filename);
 const rootDir = path.resolve(__dirname, "..");
 const postsDir = path.join(rootDir, "content", "posts");
 const promptsDir = path.join(rootDir, "prompts");
+const stocksDir = path.join(rootDir, "content", "stocks");
 const uploadsDir = path.join(rootDir, "public", "uploads");
 
 const app = express();
@@ -151,6 +152,178 @@ async function listPosts() {
 
   return posts.sort((a, b) => new Date(b.date || 0) - new Date(a.date || 0));
 }
+
+async function listStockTheses() {
+  await fs.mkdir(stocksDir, { recursive: true });
+  const entries = await fs.readdir(stocksDir, { withFileTypes: true });
+  const tickers = entries.filter((e) => e.isDirectory()).map((e) => e.name);
+
+  const stocks = await Promise.all(
+    tickers.map(async (ticker) => {
+      try {
+        const source = await fs.readFile(path.join(stocksDir, ticker, "thesis.md"), "utf8");
+        const { data } = parseFrontMatter(source);
+        return {
+          ticker: data.ticker || ticker,
+          company: data.company || "",
+          sector: data.sector || "",
+          status: data.status || "",
+          conviction: data.conviction || "",
+          labels: Array.isArray(data.labels) ? data.labels : [],
+          theme: data.theme || "",
+          updated: data.updated || ""
+        };
+      } catch {
+        return { ticker, company: ticker, status: "", conviction: "", labels: [], theme: "", updated: "", sector: "" };
+      }
+    })
+  );
+
+  return stocks;
+}
+
+async function readStockTimeline(ticker) {
+  const dir = path.join(stocksDir, ticker.toUpperCase());
+  try {
+    const files = await fs.readdir(dir);
+    const notes = files.filter((f) => f.endsWith(".md") && f !== "thesis.md" && f !== "activity.md");
+    const timeline = await Promise.all(
+      notes.map(async (filename) => {
+        const source = await fs.readFile(path.join(dir, filename), "utf8");
+        const { data, body } = parseFrontMatter(source);
+        return {
+          slug: filename.replace(".md", ""),
+          type: data.type || "",
+          date: data.date || "",
+          title: data.title || filename.replace(".md", ""),
+          summary: data.summary || "",
+          action: data.action || "",
+          ticker: data.ticker || ticker,
+          body
+        };
+      })
+    );
+    return timeline.sort((a, b) => new Date(b.date || 0) - new Date(a.date || 0));
+  } catch {
+    return [];
+  }
+}
+
+async function readStockNote(ticker, noteSlug) {
+  const safeSlug = slugify(noteSlug);
+  if (safeSlug !== noteSlug) {
+    const error = new Error("Invalid note slug");
+    error.code = "ENOENT";
+    throw error;
+  }
+
+  const source = await fs.readFile(path.join(stocksDir, ticker.toUpperCase(), `${safeSlug}.md`), "utf8");
+  const { data, body } = parseFrontMatter(source);
+
+  return {
+    slug: safeSlug,
+    type: data.type || "",
+    date: data.date || "",
+    title: data.title || safeSlug,
+    summary: data.summary || "",
+    action: data.action || "",
+    ticker: data.ticker || ticker.toUpperCase(),
+    body
+  };
+}
+
+async function findRelatedPosts(ticker) {
+  const posts = await listPosts();
+  return posts.filter((post) => {
+    const hasTickerInBody = false; // skip expensive search for now
+    const tickersInTags = post.tags.some((tag) => tag.toUpperCase() === ticker.toUpperCase());
+    const hasTickersField = Array.isArray(post.tickers);
+    const tickerInField = hasTickersField && post.tickers.some((t) => t.toUpperCase() === ticker.toUpperCase());
+    return tickersInTags || tickerInField;
+  });
+}
+
+app.get("/api/stocks", async (_request, response, next) => {
+  try {
+    const stocks = await listStockTheses();
+    const enriched = await Promise.all(
+      stocks.map(async (stock) => {
+        const timeline = await readStockTimeline(stock.ticker);
+        return {
+          ...stock,
+          timelineCount: timeline.length,
+          latestNote: timeline.length > 0 ? {
+            slug: timeline[0].slug,
+            type: timeline[0].type,
+            date: timeline[0].date,
+            title: timeline[0].title,
+            summary: timeline[0].summary
+          } : null
+        };
+      })
+    );
+    response.json(enriched);
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.get("/api/stocks/:ticker", async (request, response, next) => {
+  try {
+    const ticker = request.params.ticker.toUpperCase();
+    const source = await fs.readFile(path.join(stocksDir, ticker, "thesis.md"), "utf8");
+    const { data, body: thesisBody } = parseFrontMatter(source);
+
+    const timeline = await readStockTimeline(ticker);
+    const relatedPosts = await findRelatedPosts(ticker);
+
+    const stock = {
+      ticker: data.ticker || ticker,
+      company: data.company || ticker,
+      sector: data.sector || "",
+      status: data.status || "",
+      conviction: data.conviction || "",
+      labels: Array.isArray(data.labels) ? data.labels : [],
+      theme: data.theme || "",
+      updated: data.updated || "",
+      thesisBody,
+      timeline,
+      relatedPosts: relatedPosts.map(({ body, ...post }) => post)
+    };
+
+    response.json(stock);
+  } catch (error) {
+    if (error.code === "ENOENT") {
+      response.status(404).json({ error: "Stock not found" });
+      return;
+    }
+    next(error);
+  }
+});
+
+app.get("/api/stocks/:ticker/timeline", async (request, response, next) => {
+  try {
+    const ticker = request.params.ticker.toUpperCase();
+    const timeline = await readStockTimeline(ticker);
+    response.json(timeline.map(({ body, ...note }) => note));
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.get("/api/stocks/:ticker/notes/:noteSlug", async (request, response, next) => {
+  try {
+    const ticker = request.params.ticker.toUpperCase();
+    const note = await readStockNote(ticker, request.params.noteSlug);
+    response.json(note);
+  } catch (error) {
+    if (error.code === "ENOENT") {
+      response.status(404).json({ error: "Stock note not found" });
+      return;
+    }
+    next(error);
+  }
+});
 
 app.get("/api/prompts", async (_request, response, next) => {
   try {

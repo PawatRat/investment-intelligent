@@ -1,4 +1,4 @@
-import { Terminal } from "lucide-react";
+import { Terminal, TrendingUp } from "lucide-react";
 import { siteConfig } from "../config/site.js";
 
 export default function SiteHeader({ navigate }) {
@@ -24,15 +24,20 @@ export default function SiteHeader({ navigate }) {
         <div className="flex items-center gap-3">
           <button
             className="inline-flex items-center gap-1.5 px-3 py-1.5 text-[13px] font-medium text-neutral-500 transition-colors hover:text-neutral-900"
+            onClick={() => navigate("/stocks")}
+            type="button"
+          >
+            <TrendingUp className="h-3.5 w-3.5" />
+            <span className="hidden sm:inline">Stocks</span>
+          </button>
+          <button
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-[13px] font-medium text-neutral-500 transition-colors hover:text-neutral-900"
             onClick={() => navigate("/prompts")}
             type="button"
           >
             <Terminal className="h-3.5 w-3.5" />
             <span className="hidden sm:inline">Prompts</span>
           </button>
-          <span className="hidden border border-neutral-200 bg-neutral-50/50 px-4 py-1.5 text-[11px] font-medium tracking-widest text-neutral-500 uppercase sm:block">
-            Minimal Edition
-          </span>
         </div>
       </div>
     </header>
