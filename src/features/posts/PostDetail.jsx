@@ -28,7 +28,7 @@ export default function PostDetail({ slug, navigate }) {
   return (
     <article className="relative z-10 mx-auto max-w-4xl px-5 py-12">
       <BackButton navigate={navigate} />
-      <header className="border-b border-neutral-100 pb-12">
+      <header className="border-b border-neutral-200 pb-12">
         <time className="text-[13px] font-medium text-neutral-500">
           {formatPostDate(post.date)} / {post.readingMinutes} min read
         </time>
@@ -39,7 +39,7 @@ export default function PostDetail({ slug, navigate }) {
       {post.coverImage && (
         <img
           alt=""
-          className="mt-12 aspect-[16/9] w-full border border-neutral-100 object-cover shadow-sm"
+          className="mt-12 aspect-[16/9] w-full border border-neutral-200 object-cover shadow-sm"
           src={post.coverImage}
         />
       )}

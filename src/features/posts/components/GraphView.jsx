@@ -48,13 +48,11 @@ export default function GraphView({ posts, navigate }) {
         {
           selector: "node",
           style: {
-            "background-color": "#000000",
-            "border-width": 1,
-            "border-color": "#000000",
+            "background-color": "#0f172a",
             "width": 10,
             "height": 10,
             "label": "data(label)",
-            "color": "#000000",
+            "color": "#475569",
             "font-size": "11px",
             "font-family": "system-ui, sans-serif",
             "text-valign": "bottom",
@@ -71,25 +69,26 @@ export default function GraphView({ posts, navigate }) {
           selector: "edge",
           style: {
             "width": 1,
-            "line-color": "#d0d0d0",
+            "line-color": "#d4d4d4",
             "curve-style": "bezier",
-            "opacity": 0.6
+            "opacity": 0.7
           }
         },
         {
           selector: "node.hover",
           style: {
-            "background-color": "#000000",
+            "background-color": "#0f172a",
             "width": 16,
             "height": 16,
             "border-width": 2,
+            "border-color": "#e2e8f0",
             "z-index": 10
           }
         },
         {
           selector: "node.connected",
           style: {
-            "background-color": "#000000",
+            "background-color": "#0f172a",
             "width": 14,
             "height": 14
           }
@@ -97,7 +96,7 @@ export default function GraphView({ posts, navigate }) {
         {
           selector: "edge.connected",
           style: {
-            "line-color": "#000000",
+            "line-color": "#334155",
             "width": 1.5,
             "opacity": 1
           }
@@ -105,30 +104,30 @@ export default function GraphView({ posts, navigate }) {
         {
           selector: "node.dimmed",
           style: {
-            "opacity": 0.15
+            "opacity": 0.12
           }
         },
         {
           selector: "edge.dimmed",
           style: {
-            "opacity": 0.05
+            "opacity": 0.04
           }
         }
       ],
       layout: {
         name: "cose",
-        padding: 40,
-        componentSpacing: 120,
+        padding: 50,
+        componentSpacing: 140,
         nodeOverlap: 20,
         refresh: 20,
         fit: true,
         animate: false,
         randomize: true,
-        nodeRepulsion: 450000,
-        edgeElasticity: 100,
+        nodeRepulsion: 500000,
+        edgeElasticity: 200,
         nestingFactor: 5,
-        gravity: 80,
-        numIter: 1200,
+        gravity: 60,
+        numIter: 1500,
         initialTemp: 200,
         coolingFactor: 0.95,
         minTemp: 1
@@ -153,7 +152,7 @@ export default function GraphView({ posts, navigate }) {
       others.addClass("dimmed");
     });
 
-    cy.on("mouseout", "node", (evt) => {
+    cy.on("mouseout", "node", () => {
       cy.elements().removeClass("hover connected dimmed");
     });
 
@@ -166,23 +165,23 @@ export default function GraphView({ posts, navigate }) {
 
   if (!posts.length) {
     return (
-      <div className="mt-8 flex h-[420px] items-center justify-center border border-black bg-white">
-        <p className="text-sm text-neutral-600">No posts to graph.</p>
+      <div className="mt-8 flex h-[420px] items-center justify-center border border-neutral-200 bg-white">
+        <p className="text-sm text-neutral-500">No posts to graph.</p>
       </div>
     );
   }
 
   return (
-    <div className="mt-8 border border-black bg-white">
-      <div className="flex items-center justify-between border-b border-black px-4 py-2">
-        <span className="text-xs font-semibold uppercase tracking-[0.16em]">
+    <div className="mt-8 border border-neutral-200 bg-white">
+      <div className="flex items-center justify-between border-b border-neutral-200 px-4 py-2.5">
+        <span className="text-[13px] font-medium uppercase tracking-wider text-neutral-500">
           Graph View
         </span>
-        <span className="text-[11px] text-neutral-600">
-          {posts.length} posts · drag to pan · scroll to zoom · click to open
+        <span className="text-[11px] text-neutral-400">
+          {posts.length} posts &middot; drag to pan &middot; scroll to zoom &middot; click to open
         </span>
       </div>
-      <div ref={containerRef} style={{ width: "100%", height: "420px" }} />
+      <div ref={containerRef} style={{ width: "100%", height: "440px" }} />
     </div>
   );
 }

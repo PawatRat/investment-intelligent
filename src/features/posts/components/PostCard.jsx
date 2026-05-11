@@ -4,7 +4,7 @@ import TagList from "./TagList.jsx";
 
 export default function PostCard({ post, navigate }) {
   return (
-    <article className="group flex min-h-[280px] flex-col border border-neutral-100 bg-white p-6 shadow-sm transition-colors duration-300 hover:bg-neutral-50/80">
+    <article className="group flex min-h-[280px] flex-col border border-neutral-200 bg-white p-6 shadow-sm transition-colors duration-300 hover:bg-neutral-50/80">
       <div className="flex items-center gap-2 text-[13px] font-medium text-neutral-500">
         <CalendarDays className="h-4 w-4" />
         {formatPostDate(post.date)}

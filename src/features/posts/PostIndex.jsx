@@ -15,7 +15,7 @@ export default function PostIndex({ navigate }) {
   const [view, setView] = useState("grid");
   const [query, setQuery] = useState("");
   const [activeTag, setActiveTag] = useState("All");
-  const heroTitle = "Whisper words of wisdom";
+  const heroTitle = "Notes Maxxing";
 
   const tags = useMemo(() => {
     const tagSet = new Set(posts.flatMap((post) => post.tags));
@@ -33,7 +33,7 @@ export default function PostIndex({ navigate }) {
 
   return (
     <section className="relative z-10 mx-auto max-w-6xl px-5 py-12">
-      <div className="grid gap-8 border-b border-neutral-100 pb-10 lg:grid-cols-[1fr_360px]">
+      <div className="grid gap-8 border-b border-neutral-200 pb-10 lg:grid-cols-[1fr_360px]">
         <div>
           <TypewriterTitle
             className="min-h-[9.5rem] max-w-3xl text-5xl font-semibold leading-[0.96] md:min-h-[8.75rem] md:text-7xl"
@@ -44,7 +44,7 @@ export default function PostIndex({ navigate }) {
             graph notes, images, tags, filters, timelines, and direct post links.
           </p>
         </div>
-        <div className="border-l border-neutral-100 pl-8 text-sm leading-6 text-neutral-700">
+        <div className="border-l border-neutral-200 pl-8 text-sm leading-6 text-neutral-700">
           <p>
             Posts are files in <span className="bg-neutral-100 px-1 py-0.5 font-mono text-[13px] text-neutral-800">content/posts</span>.
             The browser never writes content in this version; it reads published entries from
@@ -106,7 +106,7 @@ export default function PostIndex({ navigate }) {
       {!loading && !error && view === "graph" && (
         <Suspense
           fallback={
-            <div className="mt-8 flex h-[420px] items-center justify-center border border-neutral-100 bg-white shadow-sm">
+            <div className="mt-8 flex h-[420px] items-center justify-center border border-neutral-200 bg-white shadow-sm">
               <p className="text-sm text-neutral-600">Loading graph...</p>
             </div>
           }

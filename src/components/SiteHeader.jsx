@@ -2,7 +2,7 @@ import { siteConfig } from "../config/site.js";
 
 export default function SiteHeader({ navigate }) {
   return (
-    <header className="sticky top-0 z-50 border-b border-neutral-100 bg-white/70 backdrop-blur-md">
+    <header className="sticky top-0 z-50 border-b border-neutral-200 bg-white/70 backdrop-blur-md">
       <div className="mx-auto flex max-w-6xl items-center justify-between px-5 py-4">
         <button
           className="group flex items-center gap-3 text-left transition-opacity hover:opacity-80"

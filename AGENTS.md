@@ -217,3 +217,51 @@ Follow this checklist:
 - [ ] No `rounded-*` or `border-radius` anywhere
 - [ ] Test: `npm run build` must succeed
 - [ ] Update `DESIGN.md` if the new component introduces a new visual pattern
+
+---
+
+## Prompts Library
+
+The `prompts/` folder stores reusable AI agent prompt templates. Each `.md` file is a recipe — the agent reads it, executes the instructions (gathering data, running analysis), formats the output as a post, and POSTs it to `/api/posts`.
+
+### How Prompts Work
+
+```
+User → "Run prompts/growth-scanner.md for semiconductors"
+Agent → Reads the prompt template
+Agent → Gathers real data, runs the analysis
+Agent → Formats output with front matter + markdown body
+Agent → POSTs to /api/posts
+Result → New post appears on the site
+```
+
+### Available Prompts
+
+| Prompt | Use |
+|---|---|
+| `prompts/stock-report.md` | Deep-dive analysis on a single ticker |
+| `prompts/growth-scanner.md` | Scan a sector for high-growth stocks, ranked |
+| `prompts/weekly-brief.md` | Weekly summary/recap on a topic with chart blocks |
+
+### Prompt File Structure
+
+Each prompt contains:
+- **Purpose** — what it produces
+- **Triggers** — natural language phrases that should activate it
+- **Instructions** — step-by-step what data to gather and analyze
+- **Output Format** — exact front matter + markdown structure expected
+- **Posting** — reminder to POST to `/api/posts`
+
+### Adding a New Prompt
+
+1. Create `prompts/your-prompt.md`
+2. Follow the existing format (purpose, instructions, output format)
+3. Include relevant `tags` for filtering on the site
+4. The agent should always POST the result with no `slug` field — the server generates it
+
+### Important: Chart Blocks
+
+Some prompts include ` ```chart ` blocks. When an agent populates chart data, it must:
+- Use valid JSON inside the chart block
+- Include `type`, `data`, `xKey`, `yKey` fields
+- Supported chart types: `bar`, `line`, `pie`

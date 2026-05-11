@@ -3,7 +3,7 @@ import TagList from "./TagList.jsx";
 
 export default function TimelineView({ posts, navigate }) {
   return (
-    <div className="mt-10 border-l-2 border-neutral-100">
+    <div className="mt-10 border-l-2 border-neutral-200">
       {posts.map((post) => (
         <article className="relative pb-10 pl-8" key={post.slug}>
           <span className="absolute -left-[5px] top-1.5 h-2 w-2 bg-neutral-300 ring-4 ring-white" />
