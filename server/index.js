@@ -138,6 +138,7 @@ async function readPostFile(fileName) {
     description: data.description || "",
     date: data.date || "",
     tags: Array.isArray(data.tags) ? data.tags : [],
+    tickers: Array.isArray(data.tickers) ? data.tickers : [],
     coverImage: data.coverImage || "",
     body
   };

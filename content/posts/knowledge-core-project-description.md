@@ -3,7 +3,7 @@ title: Knowledge Core Project Description
 slug: knowledge-core-project-description
 description: A minimal backend-owned Markdown blog for project writing, diagrams, graph notes, images, tags, filters, timelines, and permanent post links.
 date: 2026-05-05
-tags: ["project", "markdown", "backend", "tailwind"]
+tags: ["project", "tailwind"]
 coverImage: /uploads/dot-grid-cover.svg
 ---
 
@@ -21,7 +21,7 @@ title: Knowledge Core Project Description
 slug: knowledge-core-project-description
 description: A minimal backend-owned Markdown blog.
 date: 2026-05-05
-tags: ["project", "markdown", "backend", "tailwind"]
+tags: ["project", "tailwind"]
 coverImage: /uploads/dot-grid-cover.svg
 ---
 ```

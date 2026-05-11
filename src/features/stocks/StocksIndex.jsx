@@ -10,6 +10,7 @@ export default function StocksIndex({ navigate }) {
   const { stocks, loading, error } = useStocks();
   const [statusFilter, setStatusFilter] = useState("All");
   const [convictionFilter, setConvictionFilter] = useState("All");
+  const [labelFilter, setLabelFilter] = useState("All");
   const [query, setQuery] = useState("");
 
   const filteredStocks = useMemo(() => {
@@ -17,10 +18,11 @@ export default function StocksIndex({ navigate }) {
     return stocks.filter((s) => {
       const matchStatus = statusFilter === "All" || s.status === statusFilter;
       const matchConviction = convictionFilter === "All" || s.conviction === convictionFilter;
+      const matchLabel = labelFilter === "All" || s.labels.includes(labelFilter);
       const searchable = `${s.ticker} ${s.company} ${s.theme}`.toLowerCase();
-      return matchStatus && matchConviction && (!q || searchable.includes(q));
+      return matchStatus && matchConviction && matchLabel && (!q || searchable.includes(q));
     });
-  }, [stocks, statusFilter, convictionFilter, query]);
+  }, [stocks, statusFilter, convictionFilter, labelFilter, query]);
 
   const labels = useMemo(() => {
     const set = new Set(stocks.flatMap((s) => s.labels));
@@ -78,6 +80,17 @@ export default function StocksIndex({ navigate }) {
             </button>
           ))}
         </div>
+        {labels.length > 0 && (
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="w-[5.5rem] text-[13px] font-medium text-neutral-500">Labels</span>
+            <button key="All-labels" className={`px-3 py-1.5 text-[13px] font-medium transition-colors ${labelFilter === "All" ? "bg-neutral-900 text-white" : "bg-neutral-100 text-neutral-600 hover:bg-neutral-200"}`} onClick={() => setLabelFilter("All")} type="button">All</button>
+            {labels.map((l) => (
+              <button key={l} className={`px-3 py-1.5 text-[13px] font-medium transition-colors ${labelFilter === l ? "bg-neutral-900 text-white" : "bg-neutral-100 text-neutral-600 hover:bg-neutral-200"}`} onClick={() => setLabelFilter(l)} type="button">
+                {l}
+              </button>
+            ))}
+          </div>
+        )}
       </div>
 
       <div className="mt-4">

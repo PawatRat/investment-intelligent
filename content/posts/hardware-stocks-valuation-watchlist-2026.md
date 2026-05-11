@@ -3,7 +3,7 @@ title: Hardware Stocks Valuation Watchlist 2026
 slug: hardware-stocks-valuation-watchlist-2026
 description: A valuation-first screen of hardware and hardware-adjacent public stocks using market cap, forward P/E, PEG, P/S, EV/EBITDA, growth, short interest, and quality context.
 date: 2026-05-05
-tags: ["stocks", "hardware", "valuation", "semiconductors", "research"]
+tags: ["stocks", "research"]
 tickers: ["HPQ", "SMCI", "HPE", "NTAP", "DELL", "CSCO", "FLEX", "JBL", "WDC", "STX", "NVDA", "AMD"]
 ---
 

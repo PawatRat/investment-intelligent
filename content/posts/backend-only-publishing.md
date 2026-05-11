@@ -3,7 +3,7 @@ title: Backend Only Publishing
 slug: backend-only-publishing
 description: Why the first version keeps post creation behind the API instead of adding frontend authoring tools.
 date: 2026-05-04
-tags: ["backend", "api", "workflow"]
+tags: ["workflow"]
 ---
 
 The first release allows the website to read content, not write it. Post creation happens through the backend API so the data shape stays controlled while the reading experience is developed.

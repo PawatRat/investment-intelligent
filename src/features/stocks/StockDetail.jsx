@@ -1,12 +1,21 @@
+import { useMemo, useState } from "react";
 import { ArrowLeft } from "lucide-react";
 import { marked } from "marked";
-import { useState } from "react";
 import StateMessage from "../../components/StateMessage.jsx";
 import { useStock } from "./hooks.js";
+
+const TIMELINE_TYPES = ["All", "weekly-check", "earnings-review", "valuation-update", "risk-note", "news-note", "thesis-update"];
 
 export default function StockDetail({ ticker, navigate }) {
   const { stock, loading, error } = useStock(ticker);
   const [openNoteSlug, setOpenNoteSlug] = useState("");
+  const [timelineFilter, setTimelineFilter] = useState("All");
+
+  const filteredTimeline = useMemo(() => {
+    if (!stock) return [];
+    if (timelineFilter === "All") return stock.timeline;
+    return stock.timeline.filter((n) => n.type === timelineFilter);
+  }, [stock, timelineFilter]);
 
   if (loading) {
     return (
@@ -66,8 +75,23 @@ export default function StockDetail({ ticker, navigate }) {
       {stock.timeline.length > 0 && (
         <section className="mt-16">
           <h2 className="font-serif text-2xl font-normal tracking-tight text-neutral-900 border-b border-neutral-200 pb-4">Timeline</h2>
+          <div className="mt-4 flex flex-wrap gap-1.5">
+            {TIMELINE_TYPES.map((t) => (
+              <button
+                key={t}
+                className={`px-2.5 py-1 text-[11px] font-medium transition-colors ${timelineFilter === t ? "bg-neutral-900 text-white" : "bg-neutral-100 text-neutral-600 hover:bg-neutral-200"}`}
+                onClick={() => setTimelineFilter(t)}
+                type="button"
+              >
+                {t}
+              </button>
+            ))}
+          </div>
+          {filteredTimeline.length === 0 && (
+            <p className="mt-4 text-sm text-neutral-500">No notes match this type.</p>
+          )}
           <div className="mt-6 border-l-2 border-neutral-200">
-            {stock.timeline.map((note) => {
+            {filteredTimeline.map((note) => {
               const isOpen = openNoteSlug === note.slug;
               const noteHtml = isOpen ? marked.parse(note.body || "") : "";
               return (
