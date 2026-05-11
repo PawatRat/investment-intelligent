@@ -11,13 +11,13 @@ export default function TimelineView({ posts, navigate }) {
             {formatPostDate(post.date)}
           </time>
           <button
-            className="mt-2 block text-left text-3xl font-semibold leading-tight text-neutral-900 transition-colors hover:text-neutral-600"
+            className="mt-2 block text-left font-serif text-3xl font-normal tracking-tight leading-tight text-neutral-900 transition-colors hover:text-neutral-600"
             onClick={() => navigate(`/posts/${post.slug}`)}
             type="button"
           >
             {post.title}
           </button>
-          <p className="mt-3 max-w-2xl text-sm leading-6 text-neutral-700">{post.description}</p>
+          <p className="mt-3 max-w-2xl font-serif text-sm leading-6 text-neutral-700">{post.description}</p>
           <TagList tags={post.tags} />
         </article>
       ))}

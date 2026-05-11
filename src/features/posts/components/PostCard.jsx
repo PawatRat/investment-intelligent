@@ -10,13 +10,13 @@ export default function PostCard({ post, navigate }) {
         {formatPostDate(post.date)}
       </div>
       <button
-        className="mt-5 block text-left text-2xl font-semibold leading-tight transition-colors hover:text-neutral-600"
+        className="mt-5 block text-left font-serif text-2xl font-normal tracking-tight leading-tight transition-colors hover:text-neutral-600"
         onClick={() => navigate(`/posts/${post.slug}`)}
         type="button"
       >
         {post.title}
       </button>
-      <p className="mt-3 flex-1 text-sm leading-6 text-neutral-700">{post.description}</p>
+      <p className="mt-3 flex-1 font-serif text-sm leading-6 text-neutral-700">{post.description}</p>
       <TagList tags={post.tags} />
     </article>
   );
