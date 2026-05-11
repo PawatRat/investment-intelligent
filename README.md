@@ -1,26 +1,17 @@
 # Knowledge Core
 
-Knowledge Core is a minimal Markdown blog built around backend-owned publishing. Posts are stored as `.md` files with front matter metadata, including tags, dates, descriptions, and optional images. The frontend reads only from the backend API and renders posts in grid, timeline, and detail views.
+A backend-first Markdown publishing system with a stock knowledge base.
 
-## Foundation
+Posts live as `.md` files with front matter. The frontend reads from the API. Stocks get their own permanent pages with investment theses and dated timeline notes. Agent prompt templates produce posts automatically.
 
-- Frontend: React, Vite, Tailwind CSS
-- Backend: Node.js, Express
-- Content: Markdown files in `content/posts`
-- Fonts: bundled local `@fontsource/inter` and `@fontsource/jetbrains-mono`
-- Heavy post renderers: lazy-loaded on post detail pages
+## What It Does
 
-## Frontend Structure
-
-```txt
-src/
-  components/        shared UI primitives
-  config/            app-level metadata
-  features/posts/    post API, hooks, views, Markdown, charts
-  lib/               small framework-agnostic utilities
-```
-
-The index route stays lightweight. Markdown parsing, Mermaid, and chart rendering live in the post-detail feature so the app has a better base for future features.
+- **Write Markdown.** Every post and stock thesis is a `.md` file on disk — no database.
+- **Browse by view.** Grid, timeline, and Obsidian-style graph views on the index.
+- **Rich content.** Markdown with Mermaid diagrams, Recharts chart blocks, code highlighting, and tables.
+- **Track stocks.** Each ticker gets a permanent thesis page, timeline of research notes, and linked portfolio posts.
+- **Agent prompts.** Reusable templates an AI agent can run to gather data, analyze stocks, and publish posts.
+- **Backend publishing.** POST posts and upload images via the API. The browser only reads.
 
 ## Run
 
@@ -29,13 +20,22 @@ npm install
 npm run dev
 ```
 
-Frontend: `http://127.0.0.1:5173`
+| | URL |
+|---|---|
+| **Frontend** | http://127.0.0.1:5174 |
+| **Backend** | http://127.0.0.1:3001 |
 
-Backend: `http://127.0.0.1:3001`
+## Routes
+
+| Route | Page |
+|---|---|
+| `/` | Post index (grid, timeline, graph views) |
+| `/posts/:slug` | Single post |
+| `/stocks` | Stock dashboard |
+| `/stocks/:ticker` | Stock detail (thesis, timeline, related posts) |
+| `/prompts` | Prompt templates browser |
 
 ## Create A Post
-
-In this version, posting is backend-only. Send Markdown and metadata to:
 
 ```bash
 POST http://127.0.0.1:3001/api/posts
@@ -44,15 +44,74 @@ Content-Type: application/json
 
 ```json
 {
-  "title": "New Knowledge Note",
+  "title": "New Note",
   "description": "A short summary for listing views.",
-  "tags": ["system", "research"],
-  "date": "2026-05-05",
+  "tags": ["stocks", "research"],
+  "date": "2026-05-06",
   "coverImage": "/uploads/example.png",
   "body": "## Markdown\n\n```mermaid\ngraph TD\nA[Idea] --> B[Post]\n```\n\n```chart\n{\"type\":\"bar\",\"xKey\":\"label\",\"yKey\":\"value\",\"data\":[{\"label\":\"A\",\"value\":10}]}\n```"
 }
 ```
 
+## Upload An Image
+
+```bash
+curl -X POST http://127.0.0.1:3001/api/upload -F "image=@photo.png"
+```
+
+Returns `{ "url": "/uploads/photo-1712345678901.png" }`. Use this URL in `coverImage` or inside Markdown body.
+
+## Stock Model
+
+Each stock in `content/stocks/<TICKER>/` has:
+
+```
+MSFT/
+  thesis.md              ← investment thesis (status, conviction, labels)
+  2026-05-11-weekly-check.md  ← timeline note
+```
+
+Thesis front matter example:
+
+```md
+---
+ticker: MSFT
+company: Microsoft
+status: owned
+conviction: strong
+theme: Cloud + AI
+labels: ["core-holding", "ai", "cloud", "mega-cap"]
+---
+```
+
+Timeline notes connect to the stock page and show in date order. Portfolio-wide posts with a `tickers: ["MSFT", "META"]` field appear as related posts.
+
 ## Charts
 
-Markdown posts support fenced `chart` blocks. The renderer currently supports `bar`, `line`, and `pie` charts with a minimal black-and-white style.
+Posts and prompts support fenced `chart` blocks in `bar`, `line`, and `pie` types:
+
+````markdown
+```chart
+{"type":"bar","title":"Revenue","xKey":"ticker","yKey":"value","data":[{"ticker":"MSFT","value":2800},{"ticker":"META","value":1900}]}
+```
+````
+
+## Stack
+
+- **Frontend:** React 18 + Vite + Tailwind CSS
+- **Backend:** Express (file-based, no database)
+- **Diagrams:** Mermaid
+- **Charts:** Recharts
+- **Graph:** Cytoscape.js
+- **Markdown:** marked
+
+## Project Docs
+
+| Doc | Content |
+|---|---|
+| `AGENTS.md` | Agent instructions — read this before working on the project |
+| `DESIGN.md` | Full design system — colors, typography, components, rules |
+| `DEPLOYMENT.md` | Deployment guide — VPS, PaaS, CI/CD |
+| `docs/stock-knowledge-base-development-plan.md` | Stock feature implementation plan |
+| `docs/technical-architecture-design.md` | Architecture overview |
+| `docs/project-design-review.md` | Design review and recommendations |
