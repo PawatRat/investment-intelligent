@@ -8,6 +8,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const rootDir = path.resolve(__dirname, "..");
 const postsDir = path.join(rootDir, "content", "posts");
+const promptsDir = path.join(rootDir, "prompts");
 const uploadsDir = path.join(rootDir, "public", "uploads");
 
 const app = express();
@@ -150,6 +151,46 @@ async function listPosts() {
 
   return posts.sort((a, b) => new Date(b.date || 0) - new Date(a.date || 0));
 }
+
+app.get("/api/prompts", async (_request, response, next) => {
+  try {
+    await fs.mkdir(promptsDir, { recursive: true });
+    const files = await fs.readdir(promptsDir);
+    const mdFiles = files.filter((f) => f.endsWith(".md") && f !== "README.md");
+
+    const prompts = await Promise.all(
+      mdFiles.map(async (filename) => {
+        const source = await fs.readFile(path.join(promptsDir, filename), "utf8");
+        const firstLine = source.split("\n").find((l) => l.startsWith("# "));
+        const purposeLine = source.split("\n").find((l) => l.includes("**Purpose:**"));
+        const title = firstLine ? firstLine.replace(/^#\s+/, "") : filename.replace(".md", "");
+        const purpose = purposeLine ? purposeLine.replace(/\*\*Purpose:\*\*\s*/, "") : "";
+        return { filename, title, purpose };
+      })
+    );
+
+    response.json(prompts);
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.get("/api/prompts/:filename", async (request, response, next) => {
+  try {
+    const filePath = path.join(promptsDir, request.params.filename);
+    const source = await fs.readFile(filePath, "utf8");
+    const firstLine = source.split("\n").find((l) => l.startsWith("# "));
+    const title = firstLine ? firstLine.replace(/^#\s+/, "") : request.params.filename;
+
+    response.json({ filename: request.params.filename, title, markdown: source });
+  } catch (error) {
+    if (error.code === "ENOENT") {
+      response.status(404).json({ error: "Prompt not found" });
+      return;
+    }
+    next(error);
+  }
+});
 
 app.get("/api/posts", async (_request, response, next) => {
   try {
