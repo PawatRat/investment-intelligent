@@ -4,12 +4,13 @@ import ArticleNav from "../../components/ArticleNav.jsx";
 import StateMessage from "../../components/StateMessage.jsx";
 import { extractMarkdownHeadings } from "../../lib/markdownHeadings.js";
 import MarkdownBody from "../posts/components/MarkdownBody.jsx";
-import { useStock } from "./hooks.js";
+import { useStock, useStockPerformance } from "./hooks.js";
 
 const TIMELINE_TYPES = ["All", "weekly-check", "earnings-review", "valuation-update", "risk-note", "news-note", "thesis-update"];
 
 export default function StockDetail({ ticker, navigate }) {
   const { stock, loading, error } = useStock(ticker);
+  const { performance, loading: performanceLoading, error: performanceError } = useStockPerformance(ticker);
   const [openNoteSlug, setOpenNoteSlug] = useState("");
   const [timelineFilter, setTimelineFilter] = useState("All");
 
@@ -70,6 +71,8 @@ export default function StockDetail({ ticker, navigate }) {
           </div>
         )}
       </header>
+
+      <PerformanceSection error={performanceError} loading={performanceLoading} performance={performance} />
 
       <MarkdownBody className="prose-core mt-12" markdown={stock.thesisBody || ""} slug={`${stock.ticker}-thesis`} />
 
@@ -165,6 +168,51 @@ export default function StockDetail({ ticker, navigate }) {
       )}
       </article>
     </>
+  );
+}
+
+function PerformanceSection({ error, loading, performance }) {
+  const position = performance?.position;
+
+  return (
+    <section className="mt-8 border border-slate-200 bg-white">
+      <div className="border-b border-slate-200 px-4 py-3">
+        <h2 className="text-sm font-semibold uppercase tracking-[0.14em] text-slate-900">Performance</h2>
+        <p className="mt-1 text-sm text-slate-500">
+          {loading ? "Loading latest quote..." : error ? error : `Latest quote snapshot as of ${formatDateTime(performance?.asOf)}.`}
+        </p>
+      </div>
+      {!loading && !error && position ? (
+        <>
+          <dl className="grid divide-y divide-slate-200 text-sm sm:grid-cols-3 sm:divide-x sm:divide-y-0 lg:grid-cols-6">
+            <PerformanceMetric label="Price" value={formatUsd(position.price)} />
+            <PerformanceMetric label="Market value" value={formatUsd(position.marketValue)} />
+            <PerformanceMetric label="Cost basis" value={formatUsd(position.costBasis)} />
+            <PerformanceMetric label="Unrealized P/L" value={formatSignedUsd(position.unrealizedGain)} />
+            <PerformanceMetric label="Total return" value={formatPercent(position.totalReturnPct)} />
+            <PerformanceMetric label="Allocation" value={formatPercent(position.allocationPct)} />
+          </dl>
+          {(position.quoteError || position.warnings?.length > 0) && (
+            <div className="border-t border-slate-200 px-4 py-3 text-sm text-slate-600">
+              {[position.quoteError, ...(position.warnings || []).map((warning) => warning.warning)].filter(Boolean).slice(0, 4).join(" | ")}
+            </div>
+          )}
+        </>
+      ) : (
+        <p className="px-4 py-5 text-sm text-slate-600">
+          {loading ? "Loading performance data..." : "No performance data for this ticker yet."}
+        </p>
+      )}
+    </section>
+  );
+}
+
+function PerformanceMetric({ label, value }) {
+  return (
+    <div className="px-4 py-4">
+      <dt className="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500">{label}</dt>
+      <dd className="mt-1 text-base font-semibold text-slate-900">{value}</dd>
+    </div>
   );
 }
 
@@ -264,6 +312,34 @@ function formatUsd(value) {
     currency: "USD",
     maximumFractionDigits: 2
   }).format(value);
+}
+
+function formatSignedUsd(value) {
+  if (value === null || value === undefined) return "-";
+  return new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency: "USD",
+    signDisplay: "exceptZero",
+    maximumFractionDigits: 2
+  }).format(value);
+}
+
+function formatPercent(value) {
+  if (value === null || value === undefined) return "-";
+  return `${new Intl.NumberFormat("en-US", {
+    maximumFractionDigits: 2
+  }).format(value)}%`;
+}
+
+function formatDateTime(value) {
+  if (!value) return "-";
+  return new Intl.DateTimeFormat("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+    hour: "numeric",
+    minute: "2-digit"
+  }).format(new Date(value));
 }
 
 function formatShares(value) {

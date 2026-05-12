@@ -1,5 +1,13 @@
 import { useEffect, useState } from "react";
-import { fetchActivities, fetchStocks, fetchStock, fetchStockActivity, fetchStockNote } from "./api.js";
+import {
+  fetchActivities,
+  fetchPortfolioPerformance,
+  fetchStocks,
+  fetchStock,
+  fetchStockActivity,
+  fetchStockNote,
+  fetchStockPerformance
+} from "./api.js";
 
 export function useStocks() {
   const [stocks, setStocks] = useState([]);
@@ -80,4 +88,36 @@ export function useStockActivity(ticker) {
   }, [ticker]);
 
   return { activity, loading, error };
+}
+
+export function usePortfolioPerformance() {
+  const [performance, setPerformance] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    fetchPortfolioPerformance()
+      .then(setPerformance)
+      .catch((e) => setError(e.message))
+      .finally(() => setLoading(false));
+  }, []);
+
+  return { performance, loading, error };
+}
+
+export function useStockPerformance(ticker) {
+  const [performance, setPerformance] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    setLoading(true);
+    setError("");
+    fetchStockPerformance(ticker)
+      .then(setPerformance)
+      .catch((e) => setError(e.message))
+      .finally(() => setLoading(false));
+  }, [ticker]);
+
+  return { performance, loading, error };
 }

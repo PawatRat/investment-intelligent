@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { ArrowLeft } from "lucide-react";
 import StateMessage from "../../components/StateMessage.jsx";
-import { useActivities, useStocks } from "./hooks.js";
+import { useActivities, usePortfolioPerformance, useStocks } from "./hooks.js";
 
 const STATUS_OPTIONS = ["All", "owned", "watchlist", "previously-owned", "sold", "archived"];
 const CONVICTION_OPTIONS = ["All", "strong", "holding", "watching", "re-evaluating"];
@@ -9,14 +9,19 @@ const CONVICTION_OPTIONS = ["All", "strong", "holding", "watching", "re-evaluati
 export default function StocksIndex({ navigate }) {
   const { stocks, loading, error } = useStocks();
   const { activityData, loading: activityLoading, error: activityError } = useActivities();
+  const { performance, loading: performanceLoading, error: performanceError } = usePortfolioPerformance();
   const [statusFilter, setStatusFilter] = useState("All");
   const [convictionFilter, setConvictionFilter] = useState("All");
   const [labelFilter, setLabelFilter] = useState("All");
   const [query, setQuery] = useState("");
   const activitySummaries = activityData?.summaries || {};
   const dataQuality = activityData?.dataQuality || { untrackedTickers: [], warnings: [] };
-  const untrackedTickers = dataQuality.untrackedTickers || [];
-  const qualityWarnings = dataQuality.warnings || [];
+  const untrackedTickers = performance?.dataQuality?.untrackedTickers || dataQuality.untrackedTickers || [];
+  const qualityWarnings = performance?.dataQuality?.warnings || dataQuality.warnings || [];
+  const unpricedTickers = performance?.dataQuality?.unpricedTickers || [];
+  const performanceByTicker = useMemo(() => {
+    return Object.fromEntries((performance?.positions || []).map((position) => [position.ticker, position]));
+  }, [performance]);
 
   const filteredStocks = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -61,7 +66,7 @@ export default function StocksIndex({ navigate }) {
     };
   }, [activitySummaries, qualityWarnings.length, stocks, untrackedTickers.length]);
 
-  if (loading || activityLoading) {
+  if (loading || activityLoading || performanceLoading) {
     return (
       <section className="relative z-10 mx-auto max-w-6xl px-5 py-12">
         <StateMessage message="Loading stocks..." />
@@ -69,13 +74,13 @@ export default function StocksIndex({ navigate }) {
     );
   }
 
-  if (error || activityError) {
+  if (error || activityError || performanceError) {
     return (
       <section className="relative z-10 mx-auto max-w-6xl px-5 py-12">
         <button className="mb-8 inline-flex items-center gap-2 text-[13px] font-medium text-slate-500 transition-colors hover:text-slate-900" onClick={() => navigate("/")} type="button">
           <ArrowLeft className="h-4 w-4" /> Back to index
         </button>
-        <StateMessage message={error || activityError} />
+        <StateMessage message={error || activityError || performanceError} />
       </section>
     );
   }
@@ -134,6 +139,7 @@ export default function StocksIndex({ navigate }) {
         />
       </div>
 
+      <PerformanceOverview performance={performance} />
       <ActivityOverview stats={portfolioStats} />
 
       {filteredStocks.length === 0 && (
@@ -151,6 +157,12 @@ export default function StocksIndex({ navigate }) {
                 <th className="px-4 py-3 text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500">Conviction</th>
                 <th className="px-4 py-3 text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500">Theme</th>
                 <th className="px-4 py-3 text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500">Labels</th>
+                <th className="px-4 py-3 text-right text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500">Price</th>
+                <th className="px-4 py-3 text-right text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500">Market Value</th>
+                <th className="px-4 py-3 text-right text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500">Cost Basis</th>
+                <th className="px-4 py-3 text-right text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500">Unrealized P/L</th>
+                <th className="px-4 py-3 text-right text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500">Total Return</th>
+                <th className="px-4 py-3 text-right text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500">Allocation</th>
                 <th className="px-4 py-3 text-right text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500">Shares</th>
                 <th className="px-4 py-3 text-right text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500">Invested</th>
                 <th className="px-4 py-3 text-right text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500">Avg Cost</th>
@@ -164,6 +176,7 @@ export default function StocksIndex({ navigate }) {
             <tbody>
               {filteredStocks.map((stock) => {
                 const summary = activitySummaries[stock.ticker] || {};
+                const position = performanceByTicker[stock.ticker] || {};
                 return (
                   <tr key={stock.ticker} className="border-b border-slate-100 transition-colors hover:bg-slate-50/50">
                     <td className="px-4 py-3">
@@ -186,6 +199,12 @@ export default function StocksIndex({ navigate }) {
                         ))}
                       </div>
                     </td>
+                    <td className="whitespace-nowrap px-4 py-3 text-right text-sm text-slate-600">{formatUsd(position.price)}</td>
+                    <td className="whitespace-nowrap px-4 py-3 text-right text-sm font-medium text-slate-800">{formatUsd(position.marketValue)}</td>
+                    <td className="whitespace-nowrap px-4 py-3 text-right text-sm text-slate-600">{formatUsd(position.costBasis)}</td>
+                    <td className="whitespace-nowrap px-4 py-3 text-right text-sm font-medium text-slate-900">{formatSignedUsd(position.unrealizedGain)}</td>
+                    <td className="whitespace-nowrap px-4 py-3 text-right text-sm font-medium text-slate-900">{formatPercent(position.totalReturnPct)}</td>
+                    <td className="whitespace-nowrap px-4 py-3 text-right text-sm text-slate-600">{formatPercent(position.allocationPct)}</td>
                     <td className="whitespace-nowrap px-4 py-3 text-right text-sm font-medium text-slate-700">{formatShares(summary.shares)}</td>
                     <td className="whitespace-nowrap px-4 py-3 text-right text-sm text-slate-600">{formatUsd(summary.totalBuyAmount)}</td>
                     <td className="whitespace-nowrap px-4 py-3 text-right text-sm text-slate-600">{formatUsd(summary.averageBuyPrice)}</td>
@@ -215,7 +234,32 @@ export default function StocksIndex({ navigate }) {
       )}
 
       <UntrackedTickers tickers={untrackedTickers} summaries={activitySummaries} />
-      <DataQualityPanel untrackedTickers={untrackedTickers} warnings={qualityWarnings} />
+      <DataQualityPanel unpricedTickers={unpricedTickers} untrackedTickers={untrackedTickers} warnings={qualityWarnings} />
+    </section>
+  );
+}
+
+function PerformanceOverview({ performance }) {
+  const summary = performance?.summary || {};
+
+  return (
+    <section className="mt-6 border border-slate-200 bg-white">
+      <div className="border-b border-slate-200 px-4 py-3">
+        <h2 className="text-sm font-semibold uppercase tracking-[0.14em] text-slate-900">Portfolio Performance</h2>
+        <p className="mt-1 text-sm text-slate-500">Latest quote snapshot from {performance?.source || "market data"} as of {formatDateTime(performance?.asOf)}.</p>
+      </div>
+      <div className="grid divide-y divide-slate-200 md:grid-cols-5 md:divide-x md:divide-y-0">
+        <Metric label="Market value" value={formatUsd(summary.marketValue)} />
+        <Metric label="Cost basis" value={formatUsd(summary.costBasis)} />
+        <Metric label="Unrealized P/L" value={formatSignedUsd(summary.unrealizedGain)} />
+        <Metric label="Total return" value={formatPercent(summary.totalReturnPct)} />
+        <Metric label="Dividends" value={formatUsd(summary.dividends)} />
+      </div>
+      <div className="border-t border-slate-200 px-4 py-3 text-sm text-slate-600">
+        Realized P/L: <span className="font-medium text-slate-900">{formatSignedUsd(summary.realizedGain)}</span>
+        <span className="mx-2 text-slate-300">|</span>
+        Taxes and fees: <span className="font-medium text-slate-900">{formatUsd((summary.taxes || 0) + (summary.fees || 0))}</span>
+      </div>
     </section>
   );
 }
@@ -295,7 +339,7 @@ function UntrackedTickers({ tickers, summaries }) {
   );
 }
 
-function DataQualityPanel({ untrackedTickers, warnings }) {
+function DataQualityPanel({ unpricedTickers, untrackedTickers, warnings }) {
   return (
     <section className="mt-8 border border-slate-200 bg-white">
       <div className="border-b border-slate-200 px-4 py-3">
@@ -332,7 +376,17 @@ function DataQualityPanel({ untrackedTickers, warnings }) {
           )}
         </div>
         <aside className="px-4 py-4">
-          <h3 className="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500">Missing stock pages</h3>
+          <h3 className="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500">Missing prices</h3>
+          {unpricedTickers.length > 0 ? (
+            <div className="mt-3 flex flex-wrap gap-2">
+              {unpricedTickers.map((ticker) => (
+                <span key={ticker} className="bg-slate-100 px-2 py-1 text-xs font-semibold text-slate-700">{ticker}</span>
+              ))}
+            </div>
+          ) : (
+            <p className="mt-3 text-sm text-slate-600">Every open position has a latest price.</p>
+          )}
+          <h3 className="mt-5 text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500">Missing stock pages</h3>
           {untrackedTickers.length > 0 ? (
             <div className="mt-3 flex flex-wrap gap-2">
               {untrackedTickers.map((ticker) => (
@@ -361,6 +415,43 @@ function formatUsd(value) {
     currency: "USD",
     maximumFractionDigits: 2
   }).format(value);
+}
+
+function formatSignedUsd(value) {
+  if (!Number.isFinite(value)) {
+    return "-";
+  }
+
+  return new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency: "USD",
+    signDisplay: "exceptZero",
+    maximumFractionDigits: 2
+  }).format(value);
+}
+
+function formatPercent(value) {
+  if (!Number.isFinite(value)) {
+    return "-";
+  }
+
+  return `${new Intl.NumberFormat("en-US", {
+    maximumFractionDigits: 2
+  }).format(value)}%`;
+}
+
+function formatDateTime(value) {
+  if (!value) {
+    return "-";
+  }
+
+  return new Intl.DateTimeFormat("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+    hour: "numeric",
+    minute: "2-digit"
+  }).format(new Date(value));
 }
 
 function formatShares(value) {

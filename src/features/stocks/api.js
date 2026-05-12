@@ -22,6 +22,18 @@ export async function fetchStockActivity(ticker) {
   return response.json();
 }
 
+export async function fetchPortfolioPerformance() {
+  const response = await fetch("/api/portfolio/performance");
+  if (!response.ok) throw new Error("Unable to load portfolio performance");
+  return response.json();
+}
+
+export async function fetchStockPerformance(ticker) {
+  const response = await fetch(`/api/stocks/${ticker}/performance`);
+  if (!response.ok) throw new Error("Unable to load stock performance");
+  return response.json();
+}
+
 export async function fetchStockNote(ticker, noteSlug) {
   const response = await fetch(`/api/stocks/${ticker}/notes/${noteSlug}`);
   if (!response.ok) throw new Error("Stock note not found");

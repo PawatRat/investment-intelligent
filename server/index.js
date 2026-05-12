@@ -12,6 +12,8 @@ const promptsDir = path.join(rootDir, "prompts");
 const stocksDir = path.join(rootDir, "content", "stocks");
 const uploadsDir = path.join(rootDir, "public", "uploads");
 const activitiesFile = path.join(rootDir, "activities_portfolio.csv");
+const quoteCache = new Map();
+const quoteCacheTtlMs = 5 * 60 * 1000;
 
 const app = express();
 const port = process.env.PORT || 3001;
@@ -370,6 +372,257 @@ function roundNumber(value, decimals) {
   return Math.round(value * factor) / factor;
 }
 
+function nullableRoundNumber(value, decimals) {
+  if (!Number.isFinite(value)) return null;
+  return roundNumber(value, decimals);
+}
+
+function percentChange(gain, basis) {
+  if (!Number.isFinite(gain) || !Number.isFinite(basis) || basis <= 0) return null;
+  return roundNumber((gain / basis) * 100, 2);
+}
+
+function uniqueWarnings(warnings) {
+  const seen = new Set();
+  return warnings.filter((warning) => {
+    const key = `${warning.id || ""}:${warning.ticker || ""}:${warning.date || ""}:${warning.activity || ""}:${warning.warning || ""}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
+async function fetchYahooQuote(ticker) {
+  const normalizedTicker = ticker.toUpperCase();
+  const cached = quoteCache.get(normalizedTicker);
+  const now = Date.now();
+
+  if (cached && now - cached.fetchedAt < quoteCacheTtlMs) {
+    return cached.quote;
+  }
+
+  const quote = {
+    ticker: normalizedTicker,
+    price: null,
+    currency: "USD",
+    marketTime: "",
+    error: ""
+  };
+
+  try {
+    const response = await fetch(`https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(normalizedTicker)}?range=1d&interval=1d`);
+    if (!response.ok) {
+      throw new Error(`Quote request failed with ${response.status}`);
+    }
+
+    const payload = await response.json();
+    const result = payload?.chart?.result?.[0];
+    const meta = result?.meta || {};
+    const regularPrice = Number(meta.regularMarketPrice);
+    const previousClose = Number(meta.previousClose);
+    const closePrices = result?.indicators?.quote?.[0]?.close || [];
+    const chartPrice = [...closePrices].reverse().find((value) => Number.isFinite(value));
+    const price = Number.isFinite(regularPrice) ? regularPrice : Number.isFinite(chartPrice) ? chartPrice : previousClose;
+    const marketTime = Number.isFinite(meta.regularMarketTime)
+      ? new Date(meta.regularMarketTime * 1000).toISOString()
+      : new Date().toISOString();
+
+    if (!Number.isFinite(price)) {
+      throw new Error("Missing latest price");
+    }
+
+    quote.price = roundNumber(price, 4);
+    quote.currency = meta.currency || "USD";
+    quote.marketTime = marketTime;
+  } catch (error) {
+    quote.error = error.message || "Unable to load quote";
+  }
+
+  quoteCache.set(normalizedTicker, { fetchedAt: now, quote });
+  return quote;
+}
+
+function buildPositionPerformance(ticker, tickerActivities, quote) {
+  let shares = 0;
+  let costBasis = 0;
+  let realizedGain = 0;
+  let dividends = 0;
+  let taxes = 0;
+  let fees = 0;
+  let totalBuyAmount = 0;
+  const warnings = [];
+
+  const orderedActivities = [...tickerActivities].sort((a, b) => new Date(a.date || 0) - new Date(b.date || 0));
+
+  for (const activity of orderedActivities) {
+    if (activity.activity === "Buy") {
+      if (Number.isFinite(activity.shares) && Number.isFinite(activity.amount)) {
+        shares += activity.shares;
+        costBasis += activity.amount;
+        totalBuyAmount += activity.amount;
+      }
+    } else if (activity.activity === "Sell") {
+      const sellShares = Number.isFinite(activity.shares) ? activity.shares : 0;
+      const averageCost = shares > 0 ? costBasis / shares : 0;
+      const removedBasis = averageCost * sellShares;
+
+      shares -= sellShares;
+      costBasis -= removedBasis;
+
+      if (Number.isFinite(activity.amount)) {
+        realizedGain += activity.amount - removedBasis;
+      } else {
+        warnings.push({
+          id: activity.id,
+          ticker,
+          date: activity.date,
+          activity: activity.activity,
+          warning: "Sell amount missing; realized P/L is partial"
+        });
+      }
+    } else if (activity.activity === "Dividend") {
+      dividends += Number.isFinite(activity.amount) ? activity.amount : 0;
+    } else if (activity.activity === "Dividend Withholding Tax") {
+      taxes += Number.isFinite(activity.amount) ? activity.amount : 0;
+    } else if (activity.category === "fee") {
+      fees += Number.isFinite(activity.amount) ? activity.amount : 0;
+    }
+
+    for (const warning of activity.warnings || []) {
+      warnings.push({
+        id: activity.id,
+        ticker,
+        date: activity.date,
+        activity: activity.activity,
+        warning
+      });
+    }
+  }
+
+  if (shares < 0) {
+    warnings.push({
+      id: `${ticker}-negative-shares`,
+      ticker,
+      date: orderedActivities.at(-1)?.date || "",
+      activity: "Position",
+      warning: "Negative share balance"
+    });
+  }
+
+  if (quote?.marketTime) {
+    const marketAgeMs = Date.now() - new Date(quote.marketTime).getTime();
+    if (Number.isFinite(marketAgeMs) && marketAgeMs > 7 * 24 * 60 * 60 * 1000) {
+      warnings.push({
+        id: `${ticker}-stale-quote`,
+        ticker,
+        date: quote.marketTime.slice(0, 10),
+        activity: "Quote",
+        warning: "Latest quote is stale"
+      });
+    }
+  }
+
+  if (Math.abs(shares) < 0.00000001) {
+    shares = 0;
+    costBasis = 0;
+  }
+
+  const hasMarketValue = shares > 0 && Number.isFinite(quote?.price);
+  const marketValue = hasMarketValue ? shares * quote.price : null;
+  const averageCost = shares > 0 ? costBasis / shares : null;
+  const unrealizedGain = hasMarketValue ? marketValue - costBasis : null;
+  const totalGain = (Number.isFinite(unrealizedGain) ? unrealizedGain : 0) + realizedGain + dividends + taxes + fees;
+  const returnBasis = totalBuyAmount || costBasis;
+
+  return {
+    ticker,
+    shares: roundNumber(shares, 8),
+    price: nullableRoundNumber(quote?.price, 4),
+    currency: quote?.currency || "USD",
+    marketTime: quote?.marketTime || "",
+    marketValue: nullableRoundNumber(marketValue, 2),
+    costBasis: roundNumber(Math.max(costBasis, 0), 2),
+    averageCost: nullableRoundNumber(averageCost, 2),
+    unrealizedGain: nullableRoundNumber(unrealizedGain, 2),
+    unrealizedReturnPct: percentChange(unrealizedGain, costBasis),
+    realizedGain: roundNumber(realizedGain, 2),
+    dividends: roundNumber(dividends, 2),
+    taxes: roundNumber(taxes, 2),
+    fees: roundNumber(fees, 2),
+    totalGain: roundNumber(totalGain, 2),
+    totalReturnPct: percentChange(totalGain, returnBasis),
+    allocationPct: 0,
+    quoteError: quote?.error || "",
+    warnings
+  };
+}
+
+async function buildPortfolioPerformance() {
+  const activityData = await readPortfolioActivities();
+  const activitiesByTicker = {};
+
+  for (const activity of activityData.activities) {
+    if (!activity.ticker) continue;
+    activitiesByTicker[activity.ticker] ||= [];
+    activitiesByTicker[activity.ticker].push(activity);
+  }
+
+  const quotes = {};
+  await Promise.all(
+    Object.entries(activityData.summaries).map(async ([ticker, summary]) => {
+      quotes[ticker] = summary.shares > 0 ? await fetchYahooQuote(ticker) : {
+        ticker,
+        price: null,
+        currency: "USD",
+        marketTime: "",
+        error: ""
+      };
+    })
+  );
+
+  const positions = Object.keys(activitiesByTicker).sort().map((ticker) => {
+    return buildPositionPerformance(ticker, activitiesByTicker[ticker], quotes[ticker]);
+  });
+  const totalMarketValue = positions.reduce((total, position) => total + (position.marketValue || 0), 0);
+
+  for (const position of positions) {
+    position.allocationPct = totalMarketValue > 0 && Number.isFinite(position.marketValue)
+      ? roundNumber((position.marketValue / totalMarketValue) * 100, 2)
+      : 0;
+  }
+
+  const summary = {
+    marketValue: roundNumber(totalMarketValue, 2),
+    costBasis: roundNumber(positions.reduce((total, position) => total + position.costBasis, 0), 2),
+    unrealizedGain: roundNumber(positions.reduce((total, position) => total + (position.unrealizedGain || 0), 0), 2),
+    realizedGain: roundNumber(positions.reduce((total, position) => total + position.realizedGain, 0), 2),
+    dividends: roundNumber(positions.reduce((total, position) => total + position.dividends, 0), 2),
+    taxes: roundNumber(positions.reduce((total, position) => total + position.taxes, 0), 2),
+    fees: roundNumber(positions.reduce((total, position) => total + position.fees, 0), 2),
+    totalGain: roundNumber(positions.reduce((total, position) => total + position.totalGain, 0), 2),
+    totalReturnPct: null
+  };
+  summary.totalReturnPct = percentChange(summary.totalGain, summary.costBasis);
+
+  return {
+    asOf: new Date().toISOString(),
+    source: "yahoo-chart",
+    summary,
+    positions,
+    dataQuality: {
+      warnings: uniqueWarnings([
+        ...activityData.dataQuality.warnings,
+        ...positions.flatMap((position) => position.warnings)
+      ]),
+      unpricedTickers: positions
+        .filter((position) => position.shares > 0 && (!Number.isFinite(position.price) || position.quoteError))
+        .map((position) => position.ticker)
+        .sort(),
+      untrackedTickers: activityData.dataQuality.untrackedTickers
+    }
+  };
+}
+
 async function readPortfolioActivities() {
   let source;
   try {
@@ -488,6 +741,15 @@ app.get("/api/activities", async (_request, response, next) => {
   }
 });
 
+app.get("/api/portfolio/performance", async (_request, response, next) => {
+  try {
+    const performance = await buildPortfolioPerformance();
+    response.json(performance);
+  } catch (error) {
+    next(error);
+  }
+});
+
 app.get("/api/stocks/:ticker/timeline", async (request, response, next) => {
   try {
     const ticker = request.params.ticker.toUpperCase();
@@ -511,6 +773,28 @@ app.get("/api/stocks/:ticker/activity", async (request, response, next) => {
       dataQuality: {
         warnings: activityData.dataQuality.warnings.filter((warning) => warning.ticker === ticker),
         untrackedTickers: activityData.dataQuality.untrackedTickers
+      }
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.get("/api/stocks/:ticker/performance", async (request, response, next) => {
+  try {
+    const ticker = request.params.ticker.toUpperCase();
+    const performance = await buildPortfolioPerformance();
+    const position = performance.positions.find((item) => item.ticker === ticker);
+
+    response.json({
+      ticker,
+      asOf: performance.asOf,
+      source: performance.source,
+      position: position || null,
+      dataQuality: {
+        warnings: performance.dataQuality.warnings.filter((warning) => warning.ticker === ticker),
+        unpricedTickers: performance.dataQuality.unpricedTickers,
+        untrackedTickers: performance.dataQuality.untrackedTickers
       }
     });
   } catch (error) {
