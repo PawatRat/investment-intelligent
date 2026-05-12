@@ -7,10 +7,13 @@ export function usePosts() {
   const [error, setError] = useState("");
 
   useEffect(() => {
-    fetchPosts()
-      .then(setPosts)
-      .catch((requestError) => setError(requestError.message))
-      .finally(() => setLoading(false));
+    let ignore = false;
+    const controller = new AbortController();
+    fetchPosts(controller.signal)
+      .then((data) => { if (!ignore) setPosts(data); })
+      .catch((err) => { if (!ignore && err.name !== "AbortError") setError(err.message); })
+      .finally(() => { if (!ignore) setLoading(false); });
+    return () => { ignore = true; controller.abort(); };
   }, []);
 
   return { posts, loading, error };
@@ -22,12 +25,15 @@ export function usePost(slug) {
   const [error, setError] = useState("");
 
   useEffect(() => {
+    let ignore = false;
+    const controller = new AbortController();
     setLoading(true);
     setError("");
-    fetchPost(slug)
-      .then(setPost)
-      .catch((requestError) => setError(requestError.message))
-      .finally(() => setLoading(false));
+    fetchPost(slug, controller.signal)
+      .then((data) => { if (!ignore) setPost(data); })
+      .catch((err) => { if (!ignore && err.name !== "AbortError") setError(err.message); })
+      .finally(() => { if (!ignore) setLoading(false); });
+    return () => { ignore = true; controller.abort(); };
   }, [slug]);
 
   return { post, loading, error };

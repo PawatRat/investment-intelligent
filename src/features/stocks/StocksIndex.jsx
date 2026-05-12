@@ -1,7 +1,9 @@
-import { useMemo, useState } from "react";
+import { lazy, Suspense, useMemo, useState } from "react";
 import { ArrowLeft } from "lucide-react";
 import StateMessage from "../../components/StateMessage.jsx";
 import { useActivities, usePortfolioPerformance, useStocks } from "./hooks.js";
+
+const PLWaterfall = lazy(() => import("./components/PLWaterfall.jsx"));
 
 const STATUS_OPTIONS = ["All", "owned", "watchlist", "previously-owned", "sold", "archived"];
 const CONVICTION_OPTIONS = ["All", "strong", "holding", "watching", "re-evaluating"];
@@ -140,6 +142,9 @@ export default function StocksIndex({ navigate }) {
       </div>
 
       <PerformanceOverview performance={performance} />
+      <Suspense fallback={null}>
+        <PLWaterfall formatPercent={formatPercent} formatSignedUsd={formatSignedUsd} formatUsd={formatUsd} performance={performance} />
+      </Suspense>
       <ActivityOverview stats={portfolioStats} />
 
       {filteredStocks.length === 0 && (
@@ -239,8 +244,18 @@ export default function StocksIndex({ navigate }) {
   );
 }
 
+const ALLOCATION_COLORS = [
+  "#0f172a",
+  "#475569",
+  "#334155",
+  "#64748b",
+  "#1e293b",
+  "#94a3b8"
+];
+
 function PerformanceOverview({ performance }) {
   const summary = performance?.summary || {};
+  const positions = (performance?.positions || []).filter((p) => p.allocationPct > 0);
 
   return (
     <section className="mt-6 border border-slate-200 bg-white">
@@ -248,19 +263,56 @@ function PerformanceOverview({ performance }) {
         <h2 className="text-sm font-semibold uppercase tracking-[0.14em] text-slate-900">Portfolio Performance</h2>
         <p className="mt-1 text-sm text-slate-500">Latest quote snapshot from {performance?.source || "market data"} as of {formatDateTime(performance?.asOf)}.</p>
       </div>
-      <div className="grid divide-y divide-slate-200 md:grid-cols-5 md:divide-x md:divide-y-0">
+      <div className="grid divide-y divide-slate-200 md:grid-cols-3 md:divide-x md:divide-y-0 lg:grid-cols-6">
         <Metric label="Market value" value={formatUsd(summary.marketValue)} />
         <Metric label="Cost basis" value={formatUsd(summary.costBasis)} />
         <Metric label="Unrealized P/L" value={formatSignedUsd(summary.unrealizedGain)} />
+        <Metric label="Unrealized return" value={formatPercent(summary.unrealizedReturnPct)} />
         <Metric label="Total return" value={formatPercent(summary.totalReturnPct)} />
         <Metric label="Dividends" value={formatUsd(summary.dividends)} />
       </div>
+      {positions.length > 0 && <AllocationBar positions={positions} />}
       <div className="border-t border-slate-200 px-4 py-3 text-sm text-slate-600">
         Realized P/L: <span className="font-medium text-slate-900">{formatSignedUsd(summary.realizedGain)}</span>
         <span className="mx-2 text-slate-300">|</span>
         Taxes and fees: <span className="font-medium text-slate-900">{formatUsd((summary.taxes || 0) + (summary.fees || 0))}</span>
       </div>
     </section>
+  );
+}
+
+function AllocationBar({ positions }) {
+  const VISIBLE_MAX = 5;
+  const sorted = [...positions].sort((a, b) => b.allocationPct - a.allocationPct);
+  const visible = sorted.slice(0, VISIBLE_MAX);
+  const otherAllocation = sorted.slice(VISIBLE_MAX).reduce((sum, p) => sum + p.allocationPct, 0);
+
+  const segments = otherAllocation > 0
+    ? [...visible, { ticker: `${sorted.length - VISIBLE_MAX} more`, allocationPct: otherAllocation }]
+    : visible;
+
+  return (
+    <div className="border-t border-slate-200 px-4 py-4">
+      <h3 className="mb-3 text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500">Allocation</h3>
+      <div className="flex h-5 border border-slate-200">
+        {segments.map((seg, i) => (
+          <div
+            key={seg.ticker}
+            className="h-full border-r border-white last:border-r-0"
+            style={{ width: `${seg.allocationPct}%`, backgroundColor: ALLOCATION_COLORS[i % ALLOCATION_COLORS.length] }}
+          />
+        ))}
+      </div>
+      <div className="mt-3 flex flex-wrap gap-x-5 gap-y-1">
+        {segments.map((seg, i) => (
+          <div key={seg.ticker} className="flex items-center gap-1.5 text-xs">
+            <span className="block h-2.5 w-2.5 shrink-0 border border-slate-300" style={{ backgroundColor: ALLOCATION_COLORS[i % ALLOCATION_COLORS.length] }} />
+            <span className="font-semibold text-slate-900">{seg.ticker}</span>
+            <span className="text-slate-500">{formatPercent(seg.allocationPct)}</span>
+          </div>
+        ))}
+      </div>
+    </div>
   );
 }
 

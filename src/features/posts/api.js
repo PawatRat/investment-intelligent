@@ -1,11 +1,11 @@
-export async function fetchPosts() {
-  const response = await fetch("/api/posts");
+export async function fetchPosts(signal) {
+  const response = await fetch("/api/posts", { signal });
   if (!response.ok) throw new Error("Unable to load posts");
   return response.json();
 }
 
-export async function fetchPost(slug) {
-  const response = await fetch(`/api/posts/${slug}`);
+export async function fetchPost(slug, signal) {
+  const response = await fetch(`/api/posts/${slug}`, { signal });
   if (!response.ok) throw new Error("Post not found");
   return response.json();
 }

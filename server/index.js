@@ -14,6 +14,9 @@ const uploadsDir = path.join(rootDir, "public", "uploads");
 const activitiesFile = path.join(rootDir, "activities_portfolio.csv");
 const quoteCache = new Map();
 const quoteCacheTtlMs = 5 * 60 * 1000;
+const tickerAliases = {
+  SPLG: "SPYM"
+};
 
 const app = express();
 const port = process.env.PORT || 3001;
@@ -113,12 +116,14 @@ function parseFrontMatter(source) {
 }
 
 function buildFrontMatter(post) {
+  const tickers = Array.isArray(post.tickers) ? post.tickers.filter(Boolean) : [];
   const fields = {
     title: post.title,
     slug: post.slug,
     description: post.description,
     date: post.date,
     tags: `[${post.tags.map((tag) => `"${tag}"`).join(", ")}]`,
+    tickers: tickers.length > 0 ? `[${tickers.map((t) => `"${t}"`).join(", ")}]` : "",
     coverImage: post.coverImage || ""
   };
 
@@ -133,7 +138,7 @@ async function readPostFile(fileName) {
   const filePath = path.join(postsDir, fileName);
   const source = await fs.readFile(filePath, "utf8");
   const { data, body } = parseFrontMatter(source);
-  const slug = data.slug || fileName.replace(/\.md$/, "");
+  const slug = data.slug?.trim() || fileName.replace(/\.md$/, "");
 
   return {
     slug,
@@ -317,12 +322,60 @@ function classifyActivity(activity) {
   return "other";
 }
 
+function normalizeTicker(value) {
+  const ticker = String(value || "").trim().toUpperCase();
+  return tickerAliases[ticker] || ticker;
+}
+
 function signedCashFlow(activity, amount) {
   if (amount === null) return null;
   const normalized = String(activity || "").toLowerCase();
   if (normalized === "buy") return -Math.abs(amount);
   if (normalized === "sell") return Math.abs(amount);
   return amount;
+}
+
+function resolveTradeAmount(activity, rawAmount, executedPrice, shares, warnings) {
+  const isTrade = activity === "Buy" || activity === "Sell";
+  if (Number.isFinite(rawAmount) || !isTrade) {
+    return rawAmount;
+  }
+
+  if (!Number.isFinite(executedPrice) || executedPrice <= 0 || !Number.isFinite(shares) || shares <= 0) {
+    return rawAmount;
+  }
+
+  const derivedAmount = executedPrice * shares;
+  warnings.push(`Amount derived from executed price × shares: ${roundNumber(derivedAmount, 2)}`);
+  return derivedAmount;
+}
+
+function resolveTradeShares(activity, amount, executedPrice, rawShares, warnings) {
+  if (activity !== "Buy" || !Number.isFinite(amount) || !Number.isFinite(executedPrice) || executedPrice <= 0) {
+    return rawShares;
+  }
+
+  const impliedShares = Math.abs(amount) / executedPrice;
+  if (!Number.isFinite(impliedShares) || impliedShares <= 0) {
+    return rawShares;
+  }
+
+  if (!Number.isFinite(rawShares)) {
+    warnings.push(`Shares derived from amount / executed price: ${roundNumber(impliedShares, 8)}`);
+    return impliedShares;
+  }
+
+  const absoluteDifference = Math.abs(rawShares - impliedShares);
+  const relativeDifference = absoluteDifference / impliedShares;
+  const clearMismatch = absoluteDifference > 0.0001 && relativeDifference > 0.005;
+  const likelyDisplayedShareTruncation = absoluteDifference >= 0.00001 && absoluteDifference <= 0.0001;
+
+  if (clearMismatch || likelyDisplayedShareTruncation) {
+    warnings.push(`Shares adjusted from ${roundNumber(rawShares, 8)} to ${roundNumber(impliedShares, 8)} using amount / executed price`);
+    return impliedShares;
+  }
+
+  return rawShares;
 }
 
 function buildActivitySummary(activities) {
@@ -600,8 +653,10 @@ async function buildPortfolioPerformance() {
     taxes: roundNumber(positions.reduce((total, position) => total + position.taxes, 0), 2),
     fees: roundNumber(positions.reduce((total, position) => total + position.fees, 0), 2),
     totalGain: roundNumber(positions.reduce((total, position) => total + position.totalGain, 0), 2),
+    unrealizedReturnPct: null,
     totalReturnPct: null
   };
+  summary.unrealizedReturnPct = percentChange(summary.unrealizedGain, summary.costBasis);
   summary.totalReturnPct = percentChange(summary.totalGain, summary.costBasis);
 
   return {
@@ -641,15 +696,20 @@ async function readPortfolioActivities() {
   const activities = rows.map((line, index) => {
     const values = parseCsvLine(line);
     const row = Object.fromEntries(headers.map((header, headerIndex) => [header, values[headerIndex] || ""]));
-    const amount = parseUsd(row["Amount / Cash Flow"]);
+    const rawAmount = parseUsd(row["Amount / Cash Flow"]);
     const activity = row.Activity || "";
-    const ticker = (row.Ticker || "").toUpperCase();
+    const rawTicker = (row.Ticker || "").toUpperCase();
+    const ticker = normalizeTicker(rawTicker);
     const date = parseActivityDate(row.Date);
     const warnings = [];
+    const executedPrice = parseNumber(row["Executed Price"]);
+    const rawShares = parseNumber(row.Shares);
+    const shares = resolveTradeShares(activity, rawAmount, executedPrice, rawShares, warnings);
+    const amount = resolveTradeAmount(activity, rawAmount, executedPrice, shares, warnings);
 
     if (!date) warnings.push("Invalid or missing date");
     if (!ticker && activity !== "CAT Fee" && activity !== "TAF Fee") warnings.push("Missing ticker");
-    if (amount === null && row.Note?.toLowerCase().includes("amount")) warnings.push(row.Note);
+    if (rawAmount === null && row.Note?.toLowerCase().includes("amount")) warnings.push(row.Note);
 
     return {
       id: `${date || "unknown"}-${index + 1}`,
@@ -658,11 +718,13 @@ async function readPortfolioActivities() {
       activity,
       category: classifyActivity(activity),
       ticker,
+      rawTicker,
       amount,
       signedCashFlow: signedCashFlow(activity, amount),
       currency: row["Amount / Cash Flow"] ? "USD" : "",
-      executedPrice: parseNumber(row["Executed Price"]),
-      shares: parseNumber(row.Shares),
+      executedPrice,
+      shares,
+      rawShares,
       note: row.Note || "",
       warnings
     };
@@ -935,7 +997,7 @@ app.get("/api/posts/:slug", async (request, response, next) => {
 
 app.post("/api/posts", async (request, response, next) => {
   try {
-    const { title, description = "", tags = [], date, coverImage = "", body } = request.body;
+    const { title, description = "", tags = [], tickers, date, coverImage = "", body } = request.body;
 
     if (!title || !body) {
       response.status(400).json({ error: "title and body are required" });
@@ -943,6 +1005,7 @@ app.post("/api/posts", async (request, response, next) => {
     }
 
     const safeTags = Array.isArray(tags) ? tags.map(String).filter(Boolean) : [];
+    const safeTickers = Array.isArray(tickers) ? tickers.map(String).filter(Boolean) : [];
     const slug = slugify(request.body.slug || title);
     const postDate = date || new Date().toISOString().slice(0, 10);
     const filePath = path.join(postsDir, `${slug}.md`);
@@ -956,6 +1019,7 @@ app.post("/api/posts", async (request, response, next) => {
         description,
         date: postDate,
         tags: safeTags,
+        tickers: safeTickers,
         coverImage,
         body
       }),
