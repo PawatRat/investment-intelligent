@@ -175,7 +175,7 @@ function PerformanceSection({ error, loading, performance }) {
   const position = performance?.position;
 
   return (
-    <section className="mt-8 border border-slate-200 bg-white">
+    <section className="mt-8 border border-slate-200 border-t-2 border-t-black bg-white">
       <div className="border-b border-slate-200 px-4 py-3">
         <h2 className="text-sm font-semibold uppercase tracking-[0.14em] text-slate-900">Performance</h2>
         <p className="mt-1 text-sm text-slate-500">
@@ -241,14 +241,14 @@ function ActivitySection({ activity }) {
             <ActivityMetric label="Dividends" value={formatUsd(summary.dividends)} />
           </dl>
 
-          <div className="mt-4 grid gap-3 border border-slate-200 bg-slate-50 p-4 text-sm text-slate-600 sm:grid-cols-3">
+          <div className="mt-4 grid gap-3 border border-slate-200 border-t-2 border-t-black bg-slate-50 p-4 text-sm text-slate-600 sm:grid-cols-3">
             <span>Trades: <strong className="font-semibold text-slate-900">{summary.tradeCount || 0}</strong></span>
             <span>Tax withheld: <strong className="font-semibold text-slate-900">{formatUsd(summary.withholdingTax)}</strong></span>
             <span>Net cash flow: <strong className="font-semibold text-slate-900">{formatUsd(summary.netCashFlow)}</strong></span>
           </div>
 
           {summary.warnings?.length > 0 && (
-            <div className="mt-4 border border-slate-200 bg-white p-4">
+            <div className="mt-4 border border-slate-200 border-t-2 border-t-black bg-white p-4">
               <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">Data Quality</p>
               <ul className="mt-2 grid gap-1 text-sm text-slate-600">
                 {summary.warnings.slice(0, 4).map((warning) => (
@@ -258,7 +258,7 @@ function ActivitySection({ activity }) {
             </div>
           )}
 
-          <div className="mt-5 overflow-x-auto border border-slate-200 bg-white">
+          <div className="mt-5 overflow-x-auto border border-slate-200 border-t-2 border-t-black bg-white">
             <table className="w-full border-collapse text-left">
               <thead className="border-b-2 border-slate-200">
                 <tr>

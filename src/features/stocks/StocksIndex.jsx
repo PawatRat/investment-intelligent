@@ -337,7 +337,7 @@ function PerformanceOverview({ performance }) {
   const positions = (performance?.positions || []).filter((p) => p.allocationPct > 0);
 
   return (
-    <section className="mt-6 border border-slate-200 bg-white">
+    <section className="mt-6 border border-slate-200 border-t-2 border-t-black bg-white">
       <div className="border-b border-slate-200 px-4 py-3">
         <h2 className="text-sm font-semibold uppercase tracking-[0.14em] text-slate-900">Portfolio Performance</h2>
         <p className="mt-1 text-sm text-slate-500">Latest quote snapshot from {performance?.source || "market data"} as of {formatDateTime(performance?.asOf)}.</p>
@@ -397,7 +397,7 @@ function AllocationBar({ positions }) {
 
 function ActivityOverview({ stats }) {
   return (
-    <section className="mt-6 border border-slate-200 bg-white">
+    <section className="mt-6 border border-slate-200 border-t-2 border-t-black bg-white">
       <div className="border-b border-slate-200 px-4 py-3">
         <h2 className="text-sm font-semibold uppercase tracking-[0.14em] text-slate-900">Portfolio Activity Check</h2>
         <p className="mt-1 text-sm text-slate-500">Ledger coverage used for tracking, average cost, dividends, and data quality.</p>
@@ -430,7 +430,7 @@ function UntrackedTickers({ tickers, summaries }) {
   }
 
   return (
-    <section className="mt-8 border border-slate-200 bg-white">
+    <section className="mt-8 border border-slate-200 border-t-2 border-t-black bg-white">
       <div className="border-b border-slate-200 px-4 py-3">
         <h2 className="text-sm font-semibold uppercase tracking-[0.14em] text-slate-900">Activity Without Stock Page</h2>
         <p className="mt-1 text-sm text-slate-500">These tickers exist in the activity ledger but do not have a thesis page yet.</p>
@@ -472,7 +472,7 @@ function UntrackedTickers({ tickers, summaries }) {
 
 function DataQualityPanel({ unpricedTickers, untrackedTickers, warnings }) {
   return (
-    <section className="mt-8 border border-slate-200 bg-white">
+    <section className="mt-8 border border-slate-200 border-t-2 border-t-black bg-white">
       <div className="border-b border-slate-200 px-4 py-3">
         <h2 className="text-sm font-semibold uppercase tracking-[0.14em] text-slate-900">Data Quality</h2>
         <p className="mt-1 text-sm text-slate-500">Rows to review before relying on cost basis and tracking totals.</p>

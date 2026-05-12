@@ -76,7 +76,7 @@ export default function ConvictionAllocation({ stocks, performance, formatPercen
   );
 
   return (
-    <section className="mt-6 border border-slate-200 bg-white">
+    <section className="mt-6 border border-slate-200 border-t-2 border-t-black bg-white">
       <div className="border-b border-slate-200 px-4 py-3">
         <h2 className="text-sm font-semibold uppercase tracking-[0.14em] text-slate-900">Conviction vs Allocation</h2>
         <p className="mt-1 text-sm text-slate-500">Sizing check: allocation percent by conviction level.</p>
