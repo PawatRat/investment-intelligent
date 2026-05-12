@@ -11,6 +11,7 @@ const postsDir = path.join(rootDir, "content", "posts");
 const promptsDir = path.join(rootDir, "prompts");
 const stocksDir = path.join(rootDir, "content", "stocks");
 const uploadsDir = path.join(rootDir, "public", "uploads");
+const activitiesFile = path.join(rootDir, "activities_portfolio.csv");
 
 const app = express();
 const port = process.env.PORT || 3001;
@@ -233,10 +234,219 @@ async function readStockNote(ticker, noteSlug) {
   };
 }
 
+function parseCsvLine(line) {
+  const values = [];
+  let current = "";
+  let inQuotes = false;
+
+  for (let index = 0; index < line.length; index += 1) {
+    const char = line[index];
+    const next = line[index + 1];
+
+    if (char === "\"" && next === "\"") {
+      current += "\"";
+      index += 1;
+    } else if (char === "\"") {
+      inQuotes = !inQuotes;
+    } else if (char === "," && !inQuotes) {
+      values.push(current);
+      current = "";
+    } else {
+      current += char;
+    }
+  }
+
+  values.push(current);
+  return values.map((value) => value.trim());
+}
+
+function parseActivityDate(value) {
+  const cleaned = String(value || "").trim().replace(/-/g, " ");
+  const match = /^(\d{1,2})\s+([A-Za-z]{3})\s+(\d{2}|\d{4})$/.exec(cleaned);
+  if (!match) return "";
+
+  const months = {
+    jan: 0,
+    feb: 1,
+    mar: 2,
+    apr: 3,
+    may: 4,
+    jun: 5,
+    jul: 6,
+    aug: 7,
+    sep: 8,
+    oct: 9,
+    nov: 10,
+    dec: 11
+  };
+  const day = Number(match[1]);
+  const month = months[match[2].toLowerCase()];
+  const rawYear = Number(match[3]);
+  const year = rawYear < 100 ? 2000 + rawYear : rawYear;
+
+  if (!day || month === undefined || !year) return "";
+
+  const date = new Date(Date.UTC(year, month, day));
+  if (date.getUTCFullYear() !== year || date.getUTCMonth() !== month || date.getUTCDate() !== day) {
+    return "";
+  }
+
+  return date.toISOString().slice(0, 10);
+}
+
+function parseUsd(value) {
+  const cleaned = String(value || "").replace("~", "").replace("USD", "").replace(/[,+]/g, "").trim();
+  if (!cleaned) return null;
+  const amount = Number(cleaned);
+  return Number.isFinite(amount) ? amount : null;
+}
+
+function parseNumber(value) {
+  if (value === undefined || value === null || value === "") return null;
+  const number = Number(String(value).replace(/,/g, "").trim());
+  return Number.isFinite(number) ? number : null;
+}
+
+function classifyActivity(activity) {
+  const normalized = String(activity || "").toLowerCase();
+  if (normalized === "buy" || normalized === "sell") return "trade";
+  if (normalized.includes("dividend")) return "income";
+  if (normalized.includes("fee")) return "fee";
+  return "other";
+}
+
+function signedCashFlow(activity, amount) {
+  if (amount === null) return null;
+  const normalized = String(activity || "").toLowerCase();
+  if (normalized === "buy") return -Math.abs(amount);
+  if (normalized === "sell") return Math.abs(amount);
+  return amount;
+}
+
+function buildActivitySummary(activities) {
+  const tickerRows = activities.filter((activity) => activity.ticker);
+  const buyRows = tickerRows.filter((activity) => activity.activity === "Buy");
+  const sellRows = tickerRows.filter((activity) => activity.activity === "Sell");
+  const dividendRows = tickerRows.filter((activity) => activity.activity === "Dividend");
+  const withholdingRows = tickerRows.filter((activity) => activity.activity === "Dividend Withholding Tax");
+  const feeRows = tickerRows.filter((activity) => activity.category === "fee");
+
+  const buyShares = buyRows.reduce((total, activity) => total + (activity.shares || 0), 0);
+  const sellShares = sellRows.reduce((total, activity) => total + (activity.shares || 0), 0);
+  const totalBuyAmount = buyRows.reduce((total, activity) => total + (activity.amount || 0), 0);
+  const totalSellAmount = sellRows.reduce((total, activity) => total + (activity.amount || 0), 0);
+  const dividends = dividendRows.reduce((total, activity) => total + (activity.amount || 0), 0);
+  const withholdingTax = withholdingRows.reduce((total, activity) => total + (activity.amount || 0), 0);
+  const fees = feeRows.reduce((total, activity) => total + (activity.amount || 0), 0);
+  const netCashFlow = tickerRows.reduce((total, activity) => {
+    if (activity.signedCashFlow === null) return total;
+    return total + activity.signedCashFlow;
+  }, 0);
+
+  return {
+    activityCount: tickerRows.length,
+    tradeCount: buyRows.length + sellRows.length,
+    latestActivity: tickerRows[0] || null,
+    shares: roundNumber(buyShares - sellShares, 8),
+    totalBuyAmount: roundNumber(totalBuyAmount, 2),
+    totalSellAmount: roundNumber(totalSellAmount, 2),
+    averageBuyPrice: buyShares > 0 ? roundNumber(totalBuyAmount / buyShares, 2) : null,
+    dividends: roundNumber(dividends, 2),
+    withholdingTax: roundNumber(withholdingTax, 2),
+    fees: roundNumber(fees, 2),
+    netCashFlow: roundNumber(netCashFlow, 2),
+    warnings: tickerRows.flatMap((activity) => activity.warnings.map((warning) => ({
+      id: activity.id,
+      date: activity.date,
+      activity: activity.activity,
+      warning
+    })))
+  };
+}
+
+function roundNumber(value, decimals) {
+  if (!Number.isFinite(value)) return 0;
+  const factor = 10 ** decimals;
+  return Math.round(value * factor) / factor;
+}
+
+async function readPortfolioActivities() {
+  let source;
+  try {
+    source = await fs.readFile(activitiesFile, "utf8");
+  } catch (error) {
+    if (error.code === "ENOENT") {
+      return { activities: [], summaries: {}, dataQuality: { warnings: [], untrackedTickers: [] } };
+    }
+    throw error;
+  }
+
+  const lines = source.replace(/^\uFEFF/, "").split(/\r?\n/).filter((line) => line.trim());
+  const [headerLine, ...rows] = lines;
+  const headers = parseCsvLine(headerLine).map((header) => header.replace(/^\uFEFF/, ""));
+
+  const activities = rows.map((line, index) => {
+    const values = parseCsvLine(line);
+    const row = Object.fromEntries(headers.map((header, headerIndex) => [header, values[headerIndex] || ""]));
+    const amount = parseUsd(row["Amount / Cash Flow"]);
+    const activity = row.Activity || "";
+    const ticker = (row.Ticker || "").toUpperCase();
+    const date = parseActivityDate(row.Date);
+    const warnings = [];
+
+    if (!date) warnings.push("Invalid or missing date");
+    if (!ticker && activity !== "CAT Fee" && activity !== "TAF Fee") warnings.push("Missing ticker");
+    if (amount === null && row.Note?.toLowerCase().includes("amount")) warnings.push(row.Note);
+
+    return {
+      id: `${date || "unknown"}-${index + 1}`,
+      date,
+      rawDate: row.Date || "",
+      activity,
+      category: classifyActivity(activity),
+      ticker,
+      amount,
+      signedCashFlow: signedCashFlow(activity, amount),
+      currency: row["Amount / Cash Flow"] ? "USD" : "",
+      executedPrice: parseNumber(row["Executed Price"]),
+      shares: parseNumber(row.Shares),
+      note: row.Note || "",
+      warnings
+    };
+  }).sort((a, b) => new Date(b.date || 0) - new Date(a.date || 0));
+
+  const summaries = {};
+  for (const activity of activities) {
+    if (!activity.ticker) continue;
+    summaries[activity.ticker] ||= [];
+    summaries[activity.ticker].push(activity);
+  }
+
+  const summaryByTicker = Object.fromEntries(
+    Object.entries(summaries).map(([ticker, tickerActivities]) => [ticker, buildActivitySummary(tickerActivities)])
+  );
+  const stockTickers = new Set((await listStockTheses()).map((stock) => stock.ticker.toUpperCase()));
+  const activityTickers = Object.keys(summaryByTicker);
+
+  return {
+    activities,
+    summaries: summaryByTicker,
+    dataQuality: {
+      warnings: activities.flatMap((activity) => activity.warnings.map((warning) => ({
+        id: activity.id,
+        ticker: activity.ticker,
+        date: activity.date,
+        activity: activity.activity,
+        warning
+      }))),
+      untrackedTickers: activityTickers.filter((ticker) => !stockTickers.has(ticker)).sort()
+    }
+  };
+}
+
 async function findRelatedPosts(ticker) {
   const posts = await listPosts();
   return posts.filter((post) => {
-    const hasTickerInBody = false; // skip expensive search for now
     const tickersInTags = post.tags.some((tag) => tag.toUpperCase() === ticker.toUpperCase());
     const hasTickersField = Array.isArray(post.tickers);
     const tickerInField = hasTickersField && post.tickers.some((t) => t.toUpperCase() === ticker.toUpperCase());
@@ -269,35 +479,11 @@ app.get("/api/stocks", async (_request, response, next) => {
   }
 });
 
-app.get("/api/stocks/:ticker", async (request, response, next) => {
+app.get("/api/activities", async (_request, response, next) => {
   try {
-    const ticker = request.params.ticker.toUpperCase();
-    const source = await fs.readFile(path.join(stocksDir, ticker, "thesis.md"), "utf8");
-    const { data, body: thesisBody } = parseFrontMatter(source);
-
-    const timeline = await readStockTimeline(ticker);
-    const relatedPosts = await findRelatedPosts(ticker);
-
-    const stock = {
-      ticker: data.ticker || ticker,
-      company: data.company || ticker,
-      sector: data.sector || "",
-      status: data.status || "",
-      conviction: data.conviction || "",
-      labels: Array.isArray(data.labels) ? data.labels : [],
-      theme: data.theme || "",
-      updated: data.updated || "",
-      thesisBody,
-      timeline,
-      relatedPosts: relatedPosts.map(({ body, ...post }) => post)
-    };
-
-    response.json(stock);
+    const activityData = await readPortfolioActivities();
+    response.json(activityData);
   } catch (error) {
-    if (error.code === "ENOENT") {
-      response.status(404).json({ error: "Stock not found" });
-      return;
-    }
     next(error);
   }
 });
@@ -312,6 +498,26 @@ app.get("/api/stocks/:ticker/timeline", async (request, response, next) => {
   }
 });
 
+app.get("/api/stocks/:ticker/activity", async (request, response, next) => {
+  try {
+    const ticker = request.params.ticker.toUpperCase();
+    const activityData = await readPortfolioActivities();
+    const activities = activityData.activities.filter((activity) => activity.ticker === ticker);
+
+    response.json({
+      ticker,
+      activities,
+      summary: activityData.summaries[ticker] || buildActivitySummary([]),
+      dataQuality: {
+        warnings: activityData.dataQuality.warnings.filter((warning) => warning.ticker === ticker),
+        untrackedTickers: activityData.dataQuality.untrackedTickers
+      }
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
 app.get("/api/stocks/:ticker/notes/:noteSlug", async (request, response, next) => {
   try {
     const ticker = request.params.ticker.toUpperCase();
@@ -320,6 +526,50 @@ app.get("/api/stocks/:ticker/notes/:noteSlug", async (request, response, next) =
   } catch (error) {
     if (error.code === "ENOENT") {
       response.status(404).json({ error: "Stock note not found" });
+      return;
+    }
+    next(error);
+  }
+});
+
+app.get("/api/stocks/:ticker", async (request, response, next) => {
+  try {
+    const ticker = request.params.ticker.toUpperCase();
+    const source = await fs.readFile(path.join(stocksDir, ticker, "thesis.md"), "utf8");
+    const { data, body: thesisBody } = parseFrontMatter(source);
+
+    const timeline = await readStockTimeline(ticker);
+    const relatedPosts = await findRelatedPosts(ticker);
+    const activityData = await readPortfolioActivities();
+    const activity = {
+      ticker,
+      activities: activityData.activities.filter((row) => row.ticker === ticker),
+      summary: activityData.summaries[ticker] || buildActivitySummary([]),
+      dataQuality: {
+        warnings: activityData.dataQuality.warnings.filter((warning) => warning.ticker === ticker),
+        untrackedTickers: activityData.dataQuality.untrackedTickers
+      }
+    };
+
+    const stock = {
+      ticker: data.ticker || ticker,
+      company: data.company || ticker,
+      sector: data.sector || "",
+      status: data.status || "",
+      conviction: data.conviction || "",
+      labels: Array.isArray(data.labels) ? data.labels : [],
+      theme: data.theme || "",
+      updated: data.updated || "",
+      thesisBody,
+      timeline,
+      activity,
+      relatedPosts: relatedPosts.map(({ body, ...post }) => post)
+    };
+
+    response.json(stock);
+  } catch (error) {
+    if (error.code === "ENOENT") {
+      response.status(404).json({ error: "Stock not found" });
       return;
     }
     next(error);

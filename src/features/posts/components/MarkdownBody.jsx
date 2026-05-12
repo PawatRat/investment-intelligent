@@ -1,17 +1,28 @@
 import { lazy, Suspense, useEffect, useMemo, useRef } from "react";
 import { marked } from "marked";
 import { decodeHtml } from "../../../lib/html.js";
+import { addHeadingIds } from "../../../lib/markdownHeadings.js";
 import { parseMarkdownSections } from "../markdown.js";
 
 const ChartBlock = lazy(() => import("./charts/ChartBlock.jsx"));
 let mermaidPromise;
 
-export default function MarkdownBody({ markdown, slug }) {
+export default function MarkdownBody({ className = "prose-core mt-16", markdown, slug }) {
   const sections = useMemo(() => parseMarkdownSections(markdown), [markdown]);
+  const renderedSections = useMemo(() => {
+    const counts = new Map();
+    return sections.map((section) => {
+      if (section.type === "chart") return section;
+      return {
+        ...section,
+        html: addHeadingIds(marked.parse(section.content), slug, counts)
+      };
+    });
+  }, [sections, slug]);
 
   return (
-    <div className="prose-core mt-16">
-      {sections.map((section, index) => {
+    <div className={className}>
+      {renderedSections.map((section, index) => {
         if (section.type === "chart") {
           return (
             <Suspense
@@ -25,7 +36,7 @@ export default function MarkdownBody({ markdown, slug }) {
 
         return (
           <MarkdownSection
-            html={marked.parse(section.content)}
+            html={section.html}
             key={`${slug}-markdown-${index}`}
             mermaidId={`${slug}-${index}`}
           />
