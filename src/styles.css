@@ -223,6 +223,42 @@ input {
   margin: 3rem 0;
 }
 
+.stock-section-title,
+.stock-prose h2 {
+  color: #0f172a;
+  font-family: ui-serif, Georgia, Cambria, "Times New Roman", Times, serif;
+  font-size: clamp(1.75rem, 3vw, 2rem);
+  font-weight: 500;
+  letter-spacing: 0;
+  line-height: 1.08;
+}
+
+.stock-section-title {
+  border-bottom: 1px solid #e2e8f0;
+  padding-bottom: 1rem;
+}
+
+.stock-prose h2 {
+  margin-bottom: 1.5rem;
+  margin-top: 3.5rem;
+}
+
+.stock-prose-compact {
+  font-size: 1rem;
+  line-height: 1.75;
+}
+
+.stock-prose-compact h2 {
+  font-size: 1.375rem;
+  margin-bottom: 1rem;
+  margin-top: 2rem;
+  padding-top: 1.25rem;
+}
+
+.stock-prose-compact h3 {
+  font-size: 1.125rem;
+}
+
 .chart-shell {
   margin: 2rem 0;
 }

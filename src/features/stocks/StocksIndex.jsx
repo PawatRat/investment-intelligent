@@ -1,11 +1,12 @@
 import { lazy, Suspense, useMemo, useState } from "react";
 import { ArrowLeft } from "lucide-react";
 import StateMessage from "../../components/StateMessage.jsx";
-import { useActivities, usePortfolioPerformance, useStocks } from "./hooks.js";
+import { useActivities, usePortfolioBenchmark, usePortfolioPerformance, useStocks } from "./hooks.js";
 
 const PLWaterfall = lazy(() => import("./components/PLWaterfall.jsx"));
 const PortfolioBridge = lazy(() => import("./components/PortfolioBridge.jsx"));
 const ConvictionAllocation = lazy(() => import("./components/ConvictionAllocation.jsx"));
+const BenchmarkComparison = lazy(() => import("./components/BenchmarkComparison.jsx"));
 
 const STATUS_OPTIONS = ["All", "owned", "watchlist", "previously-owned", "sold", "archived"];
 const CONVICTION_OPTIONS = ["All", "strong", "holding", "watching", "re-evaluating"];
@@ -14,6 +15,7 @@ export default function StocksIndex({ navigate }) {
   const { stocks, loading, error } = useStocks();
   const { activityData, loading: activityLoading, error: activityError } = useActivities();
   const { performance, loading: performanceLoading, error: performanceError } = usePortfolioPerformance();
+  const { benchmark, loading: benchmarkLoading, error: benchmarkError } = usePortfolioBenchmark();
   const [statusFilter, setStatusFilter] = useState("All");
   const [convictionFilter, setConvictionFilter] = useState("All");
   const [labelFilter, setLabelFilter] = useState("All");
@@ -215,6 +217,9 @@ export default function StocksIndex({ navigate }) {
       </div>
 
       <PerformanceOverview performance={performance} />
+      <Suspense fallback={null}>
+        <BenchmarkComparison benchmark={benchmark} error={benchmarkError} formatPercent={formatPercent} formatSignedUsd={formatSignedUsd} formatUsd={formatUsd} loading={benchmarkLoading} />
+      </Suspense>
       <Suspense fallback={null}>
         <PortfolioBridge formatPercent={formatPercent} formatSignedUsd={formatSignedUsd} formatUsd={formatUsd} performance={performance} />
       </Suspense>

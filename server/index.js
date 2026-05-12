@@ -14,6 +14,8 @@ const uploadsDir = path.join(rootDir, "public", "uploads");
 const activitiesFile = path.join(rootDir, "activities_portfolio.csv");
 const quoteCache = new Map();
 const quoteCacheTtlMs = 5 * 60 * 1000;
+const historicalPriceCache = new Map();
+const historicalPriceCacheTtlMs = 6 * 60 * 60 * 1000;
 const tickerAliases = {
   SPLG: "SPYM"
 };
@@ -430,6 +432,16 @@ function nullableRoundNumber(value, decimals) {
   return roundNumber(value, decimals);
 }
 
+function addDays(dateString, days) {
+  const date = new Date(`${dateString}T00:00:00.000Z`);
+  date.setUTCDate(date.getUTCDate() + days);
+  return date.toISOString().slice(0, 10);
+}
+
+function toUnixSeconds(dateString) {
+  return Math.floor(new Date(`${dateString}T00:00:00.000Z`).getTime() / 1000);
+}
+
 function percentChange(gain, basis) {
   if (!Number.isFinite(gain) || !Number.isFinite(basis) || basis <= 0) return null;
   return roundNumber((gain / basis) * 100, 2);
@@ -493,6 +505,210 @@ async function fetchYahooQuote(ticker) {
 
   quoteCache.set(normalizedTicker, { fetchedAt: now, quote });
   return quote;
+}
+
+async function fetchYahooHistoricalPrices(ticker, startDate, endDate) {
+  const normalizedTicker = ticker.toUpperCase();
+  const cacheKey = `${normalizedTicker}:${startDate}:${endDate}`;
+  const cached = historicalPriceCache.get(cacheKey);
+  const now = Date.now();
+
+  if (cached && now - cached.fetchedAt < historicalPriceCacheTtlMs) {
+    return cached.result;
+  }
+
+  const result = {
+    ticker: normalizedTicker,
+    prices: new Map(),
+    dates: [],
+    error: ""
+  };
+
+  try {
+    const period1 = toUnixSeconds(startDate);
+    const period2 = toUnixSeconds(addDays(endDate, 1));
+    const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(normalizedTicker)}?period1=${period1}&period2=${period2}&interval=1d&events=history%7Cdiv%7Csplit`;
+    const response = await fetch(url);
+    if (!response.ok) {
+      throw new Error(`Historical price request failed with ${response.status}`);
+    }
+
+    const payload = await response.json();
+    const chartResult = payload?.chart?.result?.[0];
+    const timestamps = chartResult?.timestamp || [];
+    const quote = chartResult?.indicators?.quote?.[0] || {};
+    const adjClose = chartResult?.indicators?.adjclose?.[0]?.adjclose || [];
+    const close = quote.close || [];
+
+    for (let index = 0; index < timestamps.length; index += 1) {
+      const price = Number.isFinite(adjClose[index]) ? adjClose[index] : close[index];
+      if (!Number.isFinite(price) || price <= 0) continue;
+
+      const date = new Date(timestamps[index] * 1000).toISOString().slice(0, 10);
+      result.prices.set(date, price);
+      result.dates.push(date);
+    }
+
+    if (result.dates.length === 0) {
+      throw new Error("No historical prices returned");
+    }
+  } catch (error) {
+    result.error = error.message || "Unable to load historical prices";
+  }
+
+  historicalPriceCache.set(cacheKey, { fetchedAt: now, result });
+  return result;
+}
+
+function getPriceOnOrBefore(priceMap, date, previousPrice) {
+  const exactPrice = priceMap.get(date);
+  if (Number.isFinite(exactPrice)) return exactPrice;
+  return Number.isFinite(previousPrice) ? previousPrice : null;
+}
+
+async function buildPortfolioBenchmark(benchmarkTicker = "SPY") {
+  const activityData = await readPortfolioActivities();
+  const datedActivities = activityData.activities
+    .filter((activity) => activity.date && activity.ticker)
+    .sort((a, b) => new Date(a.date || 0) - new Date(b.date || 0));
+
+  if (datedActivities.length === 0) {
+    return {
+      benchmark: benchmarkTicker,
+      asOf: new Date().toISOString(),
+      source: "yahoo-chart",
+      series: [],
+      summary: null,
+      dataQuality: { warnings: [], unpricedTickers: [] }
+    };
+  }
+
+  const startDate = datedActivities[0].date;
+  const endDate = new Date().toISOString().slice(0, 10);
+  const tickers = [...new Set(datedActivities.map((activity) => activity.ticker))].sort();
+  const allTickers = [...new Set([...tickers, benchmarkTicker.toUpperCase()])];
+  const historicalResults = await Promise.all(
+    allTickers.map((ticker) => fetchYahooHistoricalPrices(ticker, startDate, endDate))
+  );
+  const historicalByTicker = Object.fromEntries(historicalResults.map((result) => [result.ticker, result]));
+  const benchmarkHistory = historicalByTicker[benchmarkTicker.toUpperCase()];
+  const benchmarkDates = benchmarkHistory?.dates || [];
+
+  if (!benchmarkDates.length) {
+    return {
+      benchmark: benchmarkTicker.toUpperCase(),
+      asOf: new Date().toISOString(),
+      source: "yahoo-chart",
+      series: [],
+      summary: null,
+      dataQuality: {
+        warnings: [{ ticker: benchmarkTicker.toUpperCase(), warning: benchmarkHistory?.error || "Benchmark prices unavailable" }],
+        unpricedTickers: [benchmarkTicker.toUpperCase()]
+      }
+    };
+  }
+
+  const holdings = {};
+  const lastPrices = {};
+  let benchmarkShares = 0;
+  let portfolioCash = 0;
+  let benchmarkCash = 0;
+  let totalContributed = 0;
+  let activityIndex = 0;
+  const warnings = historicalResults
+    .filter((result) => result.error)
+    .map((result) => ({ ticker: result.ticker, warning: result.error }));
+  const unpricedTickers = new Set(warnings.map((warning) => warning.ticker));
+
+  const series = [];
+
+  for (const date of benchmarkDates) {
+    const benchmarkPrice = benchmarkHistory.prices.get(date);
+    if (!Number.isFinite(benchmarkPrice)) continue;
+
+    while (activityIndex < datedActivities.length && datedActivities[activityIndex].date <= date) {
+      const activity = datedActivities[activityIndex];
+      holdings[activity.ticker] ||= 0;
+
+      if (activity.activity === "Buy") {
+        if (Number.isFinite(activity.shares) && Number.isFinite(activity.amount)) {
+          holdings[activity.ticker] += activity.shares;
+          totalContributed += activity.amount;
+          benchmarkShares += activity.amount / benchmarkPrice;
+        }
+      } else if (activity.activity === "Sell") {
+        const sellShares = Number.isFinite(activity.shares) ? activity.shares : 0;
+        const sellAmount = Number.isFinite(activity.amount) ? activity.amount : 0;
+        holdings[activity.ticker] -= sellShares;
+        portfolioCash += sellAmount;
+
+        const benchmarkSharesToSell = sellAmount / benchmarkPrice;
+        const soldBenchmarkShares = Math.min(benchmarkShares, benchmarkSharesToSell);
+        benchmarkShares -= soldBenchmarkShares;
+        benchmarkCash += soldBenchmarkShares * benchmarkPrice;
+      } else if (activity.activity === "Dividend" || activity.activity === "Dividend Withholding Tax" || activity.category === "fee") {
+        portfolioCash += Number.isFinite(activity.amount) ? activity.amount : 0;
+      }
+
+      activityIndex += 1;
+    }
+
+    let holdingsValue = 0;
+    for (const ticker of tickers) {
+      const shares = holdings[ticker] || 0;
+      if (Math.abs(shares) < 0.00000001) continue;
+
+      const history = historicalByTicker[ticker];
+      const price = getPriceOnOrBefore(history?.prices || new Map(), date, lastPrices[ticker]);
+      if (!Number.isFinite(price)) {
+        unpricedTickers.add(ticker);
+        continue;
+      }
+
+      lastPrices[ticker] = price;
+      holdingsValue += shares * price;
+    }
+
+    if (totalContributed <= 0) continue;
+
+    const portfolioValue = holdingsValue + portfolioCash;
+    const benchmarkValue = benchmarkShares * benchmarkPrice + benchmarkCash;
+    const portfolioReturnPct = ((portfolioValue - totalContributed) / totalContributed) * 100;
+    const benchmarkReturnPct = ((benchmarkValue - totalContributed) / totalContributed) * 100;
+
+    series.push({
+      date,
+      portfolioValue: roundNumber(portfolioValue, 2),
+      benchmarkValue: roundNumber(benchmarkValue, 2),
+      netInvested: roundNumber(totalContributed, 2),
+      portfolioReturnPct: roundNumber(portfolioReturnPct, 2),
+      benchmarkReturnPct: roundNumber(benchmarkReturnPct, 2),
+      alphaPct: roundNumber(portfolioReturnPct - benchmarkReturnPct, 2)
+    });
+  }
+
+  const latest = series.at(-1) || null;
+
+  return {
+    benchmark: benchmarkTicker.toUpperCase(),
+    asOf: new Date().toISOString(),
+    source: "yahoo-chart",
+    startDate,
+    endDate,
+    series,
+    summary: latest ? {
+      portfolioValue: latest.portfolioValue,
+      benchmarkValue: latest.benchmarkValue,
+      netInvested: latest.netInvested,
+      portfolioReturnPct: latest.portfolioReturnPct,
+      benchmarkReturnPct: latest.benchmarkReturnPct,
+      alphaPct: latest.alphaPct
+    } : null,
+    dataQuality: {
+      warnings,
+      unpricedTickers: [...unpricedTickers].sort()
+    }
+  };
 }
 
 function buildPositionPerformance(ticker, tickerActivities, quote) {
@@ -807,6 +1023,16 @@ app.get("/api/portfolio/performance", async (_request, response, next) => {
   try {
     const performance = await buildPortfolioPerformance();
     response.json(performance);
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.get("/api/portfolio/benchmark", async (request, response, next) => {
+  try {
+    const benchmark = String(request.query.benchmark || "SPY").toUpperCase().replace(/[^A-Z0-9.^-]/g, "");
+    const data = await buildPortfolioBenchmark(benchmark || "SPY");
+    response.json(data);
   } catch (error) {
     next(error);
   }

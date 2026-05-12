@@ -28,6 +28,12 @@ export async function fetchPortfolioPerformance(signal) {
   return response.json();
 }
 
+export async function fetchPortfolioBenchmark(signal) {
+  const response = await fetch("/api/portfolio/benchmark?benchmark=SPY", { signal });
+  if (!response.ok) throw new Error("Unable to load portfolio benchmark");
+  return response.json();
+}
+
 export async function fetchStockPerformance(ticker, signal) {
   const response = await fetch(`/api/stocks/${ticker}/performance`, { signal });
   if (!response.ok) throw new Error("Unable to load stock performance");

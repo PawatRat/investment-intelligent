@@ -74,12 +74,12 @@ export default function StockDetail({ ticker, navigate }) {
 
       <PerformanceSection error={performanceError} loading={performanceLoading} performance={performance} />
 
-      <MarkdownBody className="prose-core mt-12" markdown={stock.thesisBody || ""} slug={`${stock.ticker}-thesis`} />
+      <MarkdownBody className="prose-core stock-prose mt-12" markdown={stock.thesisBody || ""} slug={`${stock.ticker}-thesis`} />
 
       <ActivitySection activity={stock.activity} />
 
       <section className="mt-16">
-        <h2 className="font-serif text-2xl font-normal tracking-tight text-slate-900 border-b border-slate-200 pb-4">Timeline</h2>
+        <h2 className="stock-section-title">Timeline</h2>
         {stock.timeline.length === 0 ? (
           <p className="mt-4 text-sm text-slate-500">No timeline notes yet.</p>
         ) : (
@@ -135,7 +135,7 @@ export default function StockDetail({ ticker, navigate }) {
                   Open page
                 </button>
                 {isOpen && (
-                  <MarkdownBody className="prose-core mt-5 border border-slate-200 bg-white p-5" markdown={note.body || ""} slug={`${stock.ticker}-${note.slug}`} />
+                  <MarkdownBody className="prose-core stock-prose stock-prose-compact mt-5 border border-slate-200 bg-white p-5" markdown={note.body || ""} slug={`${stock.ticker}-${note.slug}`} />
                 )}
               </article>
               );
@@ -147,7 +147,7 @@ export default function StockDetail({ ticker, navigate }) {
 
       {stock.relatedPosts.length > 0 && (
         <section className="mt-16">
-          <h2 className="font-serif text-2xl font-normal tracking-tight text-slate-900 border-b border-slate-200 pb-4">Related Posts</h2>
+          <h2 className="stock-section-title">Related Posts</h2>
           <div className="mt-6 grid gap-3">
             {stock.relatedPosts.map((post) => (
               <button
@@ -223,8 +223,8 @@ function ActivitySection({ activity }) {
 
   return (
     <section className="mt-16">
-      <div className="border-b border-slate-200 pb-4">
-        <h2 className="font-serif text-2xl font-normal tracking-tight text-slate-900">Activity</h2>
+      <div className="pb-4">
+        <h2 className="stock-section-title">Activity</h2>
         <p className="mt-2 text-sm leading-6 text-slate-500">
           Portfolio actions recorded from the uploaded activity ledger.
         </p>

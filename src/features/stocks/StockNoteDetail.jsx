@@ -59,7 +59,7 @@ export default function StockNoteDetail({ ticker, noteSlug, navigate }) {
         )}
       </header>
 
-        <MarkdownBody className="prose-core mt-12" markdown={note.body || ""} slug={headingSlug} />
+        <MarkdownBody className="prose-core stock-prose mt-12" markdown={note.body || ""} slug={headingSlug} />
       </article>
     </>
   );

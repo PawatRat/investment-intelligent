@@ -5,6 +5,7 @@ import StateMessage from "./components/StateMessage.jsx";
 import PostIndex from "./features/posts/PostIndex.jsx";
 import PromptsIndex from "./features/prompts/PromptsIndex.jsx";
 import StocksIndex from "./features/stocks/StocksIndex.jsx";
+import ActivitiesIndex from "./features/stocks/ActivitiesIndex.jsx";
 import { useRoute } from "./lib/router.js";
 
 const PostDetail = lazy(() => import("./features/posts/PostDetail.jsx"));
@@ -63,6 +64,16 @@ export default function App() {
         >
           <PromptsDetail filename={filename} navigate={navigate} />
         </Suspense>
+      </main>
+    );
+  }
+
+  if (path === "/activities") {
+    return (
+      <main className="min-h-screen bg-white text-black">
+        <DotField />
+        <SiteHeader navigate={navigate} />
+        <ActivitiesIndex navigate={navigate} />
       </main>
     );
   }

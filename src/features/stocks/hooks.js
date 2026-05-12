@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import {
   fetchActivities,
+  fetchPortfolioBenchmark,
   fetchPortfolioPerformance,
   fetchStocks,
   fetchStock,
@@ -121,6 +122,24 @@ export function usePortfolioPerformance() {
   }, []);
 
   return { performance, loading, error };
+}
+
+export function usePortfolioBenchmark() {
+  const [benchmark, setBenchmark] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    let ignore = false;
+    const controller = new AbortController();
+    fetchPortfolioBenchmark(controller.signal)
+      .then((data) => { if (!ignore) setBenchmark(data); })
+      .catch((e) => { if (!ignore && e.name !== "AbortError") setError(e.message); })
+      .finally(() => { if (!ignore) setLoading(false); });
+    return () => { ignore = true; controller.abort(); };
+  }, []);
+
+  return { benchmark, loading, error };
 }
 
 export function useStockPerformance(ticker) {
