@@ -4,6 +4,8 @@ import StateMessage from "../../components/StateMessage.jsx";
 import { useActivities, usePortfolioPerformance, useStocks } from "./hooks.js";
 
 const PLWaterfall = lazy(() => import("./components/PLWaterfall.jsx"));
+const PortfolioBridge = lazy(() => import("./components/PortfolioBridge.jsx"));
+const ConvictionAllocation = lazy(() => import("./components/ConvictionAllocation.jsx"));
 
 const STATUS_OPTIONS = ["All", "owned", "watchlist", "previously-owned", "sold", "archived"];
 const CONVICTION_OPTIONS = ["All", "strong", "holding", "watching", "re-evaluating"];
@@ -16,6 +18,8 @@ export default function StocksIndex({ navigate }) {
   const [convictionFilter, setConvictionFilter] = useState("All");
   const [labelFilter, setLabelFilter] = useState("All");
   const [query, setQuery] = useState("");
+  const [sortKey, setSortKey] = useState("");
+  const [sortDirection, setSortDirection] = useState("asc");
   const activitySummaries = activityData?.summaries || {};
   const dataQuality = activityData?.dataQuality || { untrackedTickers: [], warnings: [] };
   const untrackedTickers = performance?.dataQuality?.untrackedTickers || dataQuality.untrackedTickers || [];
@@ -24,6 +28,42 @@ export default function StocksIndex({ navigate }) {
   const performanceByTicker = useMemo(() => {
     return Object.fromEntries((performance?.positions || []).map((position) => [position.ticker, position]));
   }, [performance]);
+
+  const sortConfigs = {
+    ticker: (s) => s.ticker,
+    company: (s) => s.company,
+    status: (s) => s.status,
+    conviction: (s) => s.conviction,
+    theme: (s) => s.theme,
+    price: (s) => performanceByTicker[s.ticker]?.price,
+    marketValue: (s) => performanceByTicker[s.ticker]?.marketValue,
+    costBasis: (s) => performanceByTicker[s.ticker]?.costBasis,
+    unrealizedGain: (s) => performanceByTicker[s.ticker]?.unrealizedGain,
+    totalReturnPct: (s) => performanceByTicker[s.ticker]?.totalReturnPct,
+    allocationPct: (s) => performanceByTicker[s.ticker]?.allocationPct,
+    shares: (s) => activitySummaries[s.ticker]?.shares,
+    totalBuyAmount: (s) => activitySummaries[s.ticker]?.totalBuyAmount,
+    averageBuyPrice: (s) => activitySummaries[s.ticker]?.averageBuyPrice,
+    dividends: (s) => activitySummaries[s.ticker]?.dividends,
+    activityCount: (s) => activitySummaries[s.ticker]?.activityCount,
+    latestActivity: (s) => activitySummaries[s.ticker]?.latestActivity?.date,
+    updated: (s) => s.updated,
+    latestNote: (s) => s.latestNote?.date
+  };
+
+  function toggleSort(key) {
+    if (sortKey === key) {
+      if (sortDirection === "asc") {
+        setSortDirection("desc");
+      } else {
+        setSortKey("");
+        setSortDirection("asc");
+      }
+    } else {
+      setSortKey(key);
+      setSortDirection("asc");
+    }
+  }
 
   const filteredStocks = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -41,8 +81,22 @@ export default function StocksIndex({ navigate }) {
         ...s.labels
       ].join(" ").toLowerCase();
       return matchStatus && matchConviction && matchLabel && (!q || searchable.includes(q));
+    }).sort((a, b) => {
+      if (!sortKey) return 0;
+      const getValue = sortConfigs[sortKey];
+      if (!getValue) return 0;
+      const va = getValue(a);
+      const vb = getValue(b);
+      const na = va ?? null;
+      const nb = vb ?? null;
+      if (na === null && nb === null) return 0;
+      if (na === null) return 1;
+      if (nb === null) return -1;
+      if (na < nb) return sortDirection === "asc" ? -1 : 1;
+      if (na > nb) return sortDirection === "asc" ? 1 : -1;
+      return 0;
     });
-  }, [stocks, statusFilter, convictionFilter, labelFilter, query]);
+  }, [stocks, statusFilter, convictionFilter, labelFilter, query, sortKey, sortDirection, performanceByTicker, activitySummaries]);
 
   const labels = useMemo(() => {
     const set = new Set(stocks.flatMap((s) => s.labels));
@@ -67,6 +121,25 @@ export default function StocksIndex({ navigate }) {
       latestActivity
     };
   }, [activitySummaries, qualityWarnings.length, stocks, untrackedTickers.length]);
+
+  function SortHeader({ children, sortKey: colKey, className = "" }) {
+    if (!colKey) {
+      return (
+        <th className={`px-4 py-3 text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500 ${className}`}>
+          {children}
+        </th>
+      );
+    }
+    const active = sortKey === colKey;
+    return (
+      <th className={`px-4 py-3 text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500 ${className}`}>
+        <button className="inline-flex items-center gap-1 transition-colors hover:text-slate-900" onClick={() => toggleSort(colKey)} type="button">
+          {children}
+          {active && <span className="text-[9px] leading-none">{sortDirection === "asc" ? "\u25B2" : "\u25BC"}</span>}
+        </button>
+      </th>
+    );
+  }
 
   if (loading || activityLoading || performanceLoading) {
     return (
@@ -143,6 +216,12 @@ export default function StocksIndex({ navigate }) {
 
       <PerformanceOverview performance={performance} />
       <Suspense fallback={null}>
+        <PortfolioBridge formatPercent={formatPercent} formatSignedUsd={formatSignedUsd} formatUsd={formatUsd} performance={performance} />
+      </Suspense>
+      <Suspense fallback={null}>
+        <ConvictionAllocation formatPercent={formatPercent} performance={performance} stocks={stocks} />
+      </Suspense>
+      <Suspense fallback={null}>
         <PLWaterfall formatPercent={formatPercent} formatSignedUsd={formatSignedUsd} formatUsd={formatUsd} performance={performance} />
       </Suspense>
       <ActivityOverview stats={portfolioStats} />
@@ -156,26 +235,26 @@ export default function StocksIndex({ navigate }) {
           <table className="w-full border-collapse text-left">
             <thead className="border-b-2 border-slate-200">
               <tr>
-                <th className="px-4 py-3 text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500">Ticker</th>
-                <th className="px-4 py-3 text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500">Company</th>
-                <th className="px-4 py-3 text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500">Status</th>
-                <th className="px-4 py-3 text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500">Conviction</th>
-                <th className="px-4 py-3 text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500">Theme</th>
-                <th className="px-4 py-3 text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500">Labels</th>
-                <th className="px-4 py-3 text-right text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500">Price</th>
-                <th className="px-4 py-3 text-right text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500">Market Value</th>
-                <th className="px-4 py-3 text-right text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500">Cost Basis</th>
-                <th className="px-4 py-3 text-right text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500">Unrealized P/L</th>
-                <th className="px-4 py-3 text-right text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500">Total Return</th>
-                <th className="px-4 py-3 text-right text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500">Allocation</th>
-                <th className="px-4 py-3 text-right text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500">Shares</th>
-                <th className="px-4 py-3 text-right text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500">Invested</th>
-                <th className="px-4 py-3 text-right text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500">Avg Cost</th>
-                <th className="px-4 py-3 text-right text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500">Dividends</th>
-                <th className="px-4 py-3 text-right text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500">Activity</th>
-                <th className="px-4 py-3 text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500">Latest Activity</th>
-                <th className="px-4 py-3 text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500">Updated</th>
-                <th className="px-4 py-3 text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500">Latest Note</th>
+                <SortHeader sortKey="ticker">Ticker</SortHeader>
+                <SortHeader sortKey="company">Company</SortHeader>
+                <SortHeader sortKey="status">Status</SortHeader>
+                <SortHeader sortKey="conviction">Conviction</SortHeader>
+                <SortHeader sortKey="theme">Theme</SortHeader>
+                <SortHeader sortKey="" className="!cursor-default">Labels</SortHeader>
+                <SortHeader className="text-right" sortKey="price">Price</SortHeader>
+                <SortHeader className="text-right" sortKey="marketValue">Market Value</SortHeader>
+                <SortHeader className="text-right" sortKey="costBasis">Cost Basis</SortHeader>
+                <SortHeader className="text-right" sortKey="unrealizedGain">Unrealized P/L</SortHeader>
+                <SortHeader className="text-right" sortKey="totalReturnPct">Total Return</SortHeader>
+                <SortHeader className="text-right" sortKey="allocationPct">Allocation</SortHeader>
+                <SortHeader className="text-right" sortKey="shares">Shares</SortHeader>
+                <SortHeader className="text-right" sortKey="totalBuyAmount">Invested</SortHeader>
+                <SortHeader className="text-right" sortKey="averageBuyPrice">Avg Cost</SortHeader>
+                <SortHeader className="text-right" sortKey="dividends">Dividends</SortHeader>
+                <SortHeader className="text-right" sortKey="activityCount">Activity</SortHeader>
+                <SortHeader sortKey="latestActivity">Latest Activity</SortHeader>
+                <SortHeader sortKey="updated">Updated</SortHeader>
+                <SortHeader sortKey="latestNote">Latest Note</SortHeader>
               </tr>
             </thead>
             <tbody>
@@ -204,17 +283,17 @@ export default function StocksIndex({ navigate }) {
                         ))}
                       </div>
                     </td>
-                    <td className="whitespace-nowrap px-4 py-3 text-right text-sm text-slate-600">{formatUsd(position.price)}</td>
-                    <td className="whitespace-nowrap px-4 py-3 text-right text-sm font-medium text-slate-800">{formatUsd(position.marketValue)}</td>
-                    <td className="whitespace-nowrap px-4 py-3 text-right text-sm text-slate-600">{formatUsd(position.costBasis)}</td>
-                    <td className="whitespace-nowrap px-4 py-3 text-right text-sm font-medium text-slate-900">{formatSignedUsd(position.unrealizedGain)}</td>
-                    <td className="whitespace-nowrap px-4 py-3 text-right text-sm font-medium text-slate-900">{formatPercent(position.totalReturnPct)}</td>
-                    <td className="whitespace-nowrap px-4 py-3 text-right text-sm text-slate-600">{formatPercent(position.allocationPct)}</td>
-                    <td className="whitespace-nowrap px-4 py-3 text-right text-sm font-medium text-slate-700">{formatShares(summary.shares)}</td>
-                    <td className="whitespace-nowrap px-4 py-3 text-right text-sm text-slate-600">{formatUsd(summary.totalBuyAmount)}</td>
-                    <td className="whitespace-nowrap px-4 py-3 text-right text-sm text-slate-600">{formatUsd(summary.averageBuyPrice)}</td>
-                    <td className="whitespace-nowrap px-4 py-3 text-right text-sm text-slate-600">{formatUsd(summary.dividends)}</td>
-                    <td className="whitespace-nowrap px-4 py-3 text-right text-sm text-slate-600">{summary.activityCount || 0}</td>
+                    <td className="whitespace-nowrap px-4 py-3 text-right text-sm text-slate-600 font-mono tabular-nums">{formatUsd(position.price)}</td>
+                    <td className="whitespace-nowrap px-4 py-3 text-right text-sm font-medium text-slate-800 font-mono tabular-nums">{formatUsd(position.marketValue)}</td>
+                    <td className="whitespace-nowrap px-4 py-3 text-right text-sm text-slate-600 font-mono tabular-nums">{formatUsd(position.costBasis)}</td>
+                    <td className="whitespace-nowrap px-4 py-3 text-right text-sm font-medium text-slate-900 font-mono tabular-nums">{formatSignedUsd(position.unrealizedGain)}</td>
+                    <td className="whitespace-nowrap px-4 py-3 text-right text-sm font-medium text-slate-900 font-mono tabular-nums">{formatPercent(position.totalReturnPct)}</td>
+                    <td className="whitespace-nowrap px-4 py-3 text-right text-sm text-slate-600 font-mono tabular-nums">{formatPercent(position.allocationPct)}</td>
+                    <td className="whitespace-nowrap px-4 py-3 text-right text-sm font-medium text-slate-700 font-mono tabular-nums">{formatShares(summary.shares)}</td>
+                    <td className="whitespace-nowrap px-4 py-3 text-right text-sm text-slate-600 font-mono tabular-nums">{formatUsd(summary.totalBuyAmount)}</td>
+                    <td className="whitespace-nowrap px-4 py-3 text-right text-sm text-slate-600 font-mono tabular-nums">{formatUsd(summary.averageBuyPrice)}</td>
+                    <td className="whitespace-nowrap px-4 py-3 text-right text-sm text-slate-600 font-mono tabular-nums">{formatUsd(summary.dividends)}</td>
+                    <td className="whitespace-nowrap px-4 py-3 text-right text-sm text-slate-600 font-mono tabular-nums">{summary.activityCount || 0}</td>
                     <td className="whitespace-nowrap px-4 py-3 text-sm text-slate-500">{formatLatestActivity(summary.latestActivity)}</td>
                     <td className="whitespace-nowrap px-4 py-3 text-sm text-slate-500">{stock.updated}</td>
                     <td className="px-4 py-3 text-sm text-slate-500">
@@ -340,7 +419,7 @@ function Metric({ label, value }) {
   return (
     <div className="px-4 py-4">
       <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500">{label}</div>
-      <div className="mt-2 font-serif text-3xl font-normal text-slate-900">{value}</div>
+      <div className="mt-2 font-mono tabular-nums text-2xl font-normal text-slate-900">{value}</div>
     </div>
   );
 }
