@@ -1,19 +1,13 @@
-import { lazy, Suspense, useMemo, useState } from "react";
-import { ArrowLeft, BriefcaseBusiness, GitGraph, Table } from "lucide-react";
-import IconButton from "../../components/IconButton.jsx";
+import { useMemo, useState } from "react";
+import { ArrowLeft, BriefcaseBusiness, GitGraph } from "lucide-react";
 import StateMessage from "../../components/StateMessage.jsx";
-import { usePosts } from "../posts/hooks.js";
 import { useStocks } from "./hooks.js";
-
-const StockGraphView = lazy(() => import("./components/StockGraphView.jsx"));
 
 const STATUS_OPTIONS = ["All", "owned", "watchlist", "previously-owned", "sold", "archived"];
 const CONVICTION_OPTIONS = ["All", "strong", "holding", "watching", "re-evaluating"];
 
 export default function StocksIndex({ navigate }) {
   const { stocks, loading, error } = useStocks();
-  const { posts } = usePosts();
-  const [view, setView] = useState("table");
   const [statusFilter, setStatusFilter] = useState("All");
   const [convictionFilter, setConvictionFilter] = useState("All");
   const [labelFilter, setLabelFilter] = useState("All");
@@ -221,14 +215,14 @@ export default function StocksIndex({ navigate }) {
             <p className="text-sm text-slate-500">{stats.watchlistCount} watchlist</p>
           )}
         </div>
-        <div className="flex items-center">
-          <IconButton active={view === "table"} label="Table view" onClick={() => setView("table")}>
-            <Table className="h-4 w-4" />
-          </IconButton>
-          <IconButton active={view === "graph"} label="Graph view" onClick={() => setView("graph")}>
-            <GitGraph className="h-4 w-4" />
-          </IconButton>
-        </div>
+        <button
+          className="inline-flex items-center gap-2 text-[13px] font-medium text-slate-500 transition-colors hover:text-slate-900"
+          onClick={() => navigate("/graph")}
+          type="button"
+        >
+          <GitGraph className="h-4 w-4" />
+          Open graph view
+        </button>
       </div>
 
       {filteredStocks.length === 0 && (
@@ -237,7 +231,7 @@ export default function StocksIndex({ navigate }) {
         </div>
       )}
 
-      {filteredStocks.length > 0 && view === "table" && (
+      {filteredStocks.length > 0 && (
         <div className="mt-6 overflow-x-auto border border-slate-200 bg-white">
           <table className="w-full border-collapse text-left">
             <thead className="border-b-2 border-slate-200">
@@ -298,18 +292,6 @@ export default function StocksIndex({ navigate }) {
             </tbody>
           </table>
         </div>
-      )}
-
-      {filteredStocks.length > 0 && view === "graph" && (
-        <Suspense
-          fallback={
-            <div className="mt-6 flex h-[480px] items-center justify-center border border-slate-200 bg-white">
-              <p className="text-sm text-slate-600">Loading graph...</p>
-            </div>
-          }
-        >
-          <StockGraphView navigate={navigate} posts={posts} stocks={filteredStocks} />
-        </Suspense>
       )}
     </section>
   );

@@ -1,7 +1,7 @@
 import { useEffect, useRef } from "react";
 import cytoscape from "cytoscape";
 
-export default function StockGraphView({ stocks, posts, navigate }) {
+export default function StockGraphView({ stocks, posts, navigate, height = "520px" }) {
   const containerRef = useRef(null);
   const cyRef = useRef(null);
 
@@ -372,7 +372,7 @@ export default function StockGraphView({ stocks, posts, navigate }) {
           {stocks.length} stocks + {noteCount} notes + {relatedPosts.length} posts &middot; click to open &middot; hover to see relationships
         </span>
       </div>
-      <div ref={containerRef} style={{ width: "100%", height: "520px" }} />
+      <div ref={containerRef} style={{ width: "100%", height }} />
     </div>
   );
 }

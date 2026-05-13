@@ -59,6 +59,8 @@ export default function PortfolioBridge({ performance, formatUsd, formatSignedUs
   const domainMin = Math.min(0, ...allPositions);
   const domainMax = Math.max(0, ...allPositions);
   const padding = Math.max(Math.abs(domainMax - domainMin) * 0.15, 1);
+  const yDomainMin = domainMin < 0 ? domainMin - padding : 0;
+  const yDomainMax = domainMax + padding;
 
   return (
     <section className="mt-6 border border-slate-200 border-t-2 border-t-black bg-white">
@@ -80,7 +82,7 @@ export default function PortfolioBridge({ performance, formatUsd, formatSignedUs
             />
             <YAxis
               axisLine={{ stroke: "#000000" }}
-              domain={[domainMin - padding, domainMax + padding]}
+              domain={[yDomainMin, yDomainMax]}
               tickFormatter={formatUsd}
               tickLine={false}
               width={64}

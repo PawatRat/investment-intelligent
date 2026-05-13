@@ -1017,14 +1017,141 @@ async function buildPortfolioBenchmark(benchmarkTicker = "SPY") {
 }
 
 function buildBenchmarkSourceLabel(historicalResults) {
-  const sources = new Set(historicalResults.map((result) => result.source).filter(Boolean));
-  if (sources.has("pocketportfolio-monthly")) {
+  const sources = historicalResults.map((result) => result.source).filter(Boolean);
+  if (sources.some((source) => source.includes("pocketportfolio-monthly"))) {
     return "yahoo-chart + pocketportfolio-monthly fallback";
   }
-  if (sources.has("historical-cache")) {
+  if (sources.some((source) => source.includes("historical-cache") || source.includes("historical cache"))) {
     return "yahoo-chart + historical cache";
   }
   return "yahoo-chart";
+}
+
+async function buildPortfolioDcaBenchmark(benchmarkTicker = "SPY") {
+  const cashflowBenchmark = await buildPortfolioBenchmark(benchmarkTicker);
+  const actualSeries = cashflowBenchmark.series || [];
+  const actualSummary = cashflowBenchmark.summary;
+
+  if (!actualSeries.length || !actualSummary?.netInvested) {
+    return {
+      benchmark: benchmarkTicker.toUpperCase(),
+      asOf: new Date().toISOString(),
+      source: cashflowBenchmark.source || "yahoo-chart",
+      strategy: "monthly-equal-dca",
+      contributionAmount: 0,
+      contributionCount: 0,
+      series: [],
+      summary: null,
+      dataQuality: cashflowBenchmark.dataQuality || { warnings: [], unpricedTickers: [] }
+    };
+  }
+
+  const startDate = actualSeries[0].date;
+  const endDate = actualSeries.at(-1).date;
+  const benchmarkHistory = await fetchYahooHistoricalPrices(benchmarkTicker, startDate, endDate);
+  const benchmarkDates = (benchmarkHistory.dates || []).filter((date) => date >= startDate && date <= endDate);
+  const dcaDates = firstBenchmarkDateByMonth(benchmarkDates);
+
+  if (!dcaDates.length) {
+    return {
+      benchmark: benchmarkTicker.toUpperCase(),
+      asOf: new Date().toISOString(),
+      source: benchmarkHistory.source || cashflowBenchmark.source || "yahoo-chart",
+      strategy: "monthly-equal-dca",
+      contributionAmount: 0,
+      contributionCount: 0,
+      series: [],
+      summary: null,
+      dataQuality: {
+        warnings: [
+          ...(cashflowBenchmark.dataQuality?.warnings || []),
+          { ticker: benchmarkTicker.toUpperCase(), warning: benchmarkHistory.error || "No DCA benchmark dates available" }
+        ],
+        unpricedTickers: [benchmarkTicker.toUpperCase()]
+      }
+    };
+  }
+
+  const actualByDate = new Map(actualSeries.map((row) => [row.date, row]));
+  const contributionAmount = actualSummary.netInvested / dcaDates.length;
+  let benchmarkShares = 0;
+  let contributed = 0;
+  let previousActual = null;
+
+  const series = [];
+  for (const date of benchmarkDates) {
+    const actual = actualByDate.get(date) || previousActual;
+    if (actualByDate.has(date)) previousActual = actualByDate.get(date);
+    if (!actual) continue;
+
+    const benchmarkPrice = getPriceOnOrBefore(benchmarkHistory.prices, date, null);
+    if (!Number.isFinite(benchmarkPrice)) continue;
+
+    if (dcaDates.includes(date)) {
+      benchmarkShares += contributionAmount / benchmarkPrice;
+      contributed += contributionAmount;
+    }
+
+    if (contributed <= 0) continue;
+
+    const dcaValue = benchmarkShares * benchmarkPrice;
+    const dcaReturnPct = ((dcaValue - contributed) / contributed) * 100;
+
+    series.push({
+      date,
+      portfolioValue: actual.portfolioValue,
+      dcaValue: roundNumber(dcaValue, 2),
+      contributed: roundNumber(contributed, 2),
+      portfolioReturnPct: actual.portfolioReturnPct,
+      dcaReturnPct: roundNumber(dcaReturnPct, 2),
+      alphaPct: roundNumber(actual.portfolioReturnPct - dcaReturnPct, 2)
+    });
+  }
+
+  const latest = series.at(-1) || null;
+  const warnings = [
+    ...(cashflowBenchmark.dataQuality?.warnings || []),
+    ...(benchmarkHistory.error ? [{ ticker: benchmarkTicker.toUpperCase(), warning: benchmarkHistory.error }] : [])
+  ];
+
+  return {
+    benchmark: benchmarkTicker.toUpperCase(),
+    asOf: new Date().toISOString(),
+    source: buildBenchmarkSourceLabel([{ source: cashflowBenchmark.source }, benchmarkHistory]),
+    strategy: "monthly-equal-dca",
+    contributionAmount: roundNumber(contributionAmount, 2),
+    contributionCount: dcaDates.length,
+    startDate,
+    endDate,
+    series,
+    summary: latest ? {
+      portfolioValue: latest.portfolioValue,
+      dcaValue: latest.dcaValue,
+      contributed: latest.contributed,
+      portfolioReturnPct: latest.portfolioReturnPct,
+      dcaReturnPct: latest.dcaReturnPct,
+      alphaPct: latest.alphaPct,
+      valueGap: roundNumber(latest.portfolioValue - latest.dcaValue, 2)
+    } : null,
+    dataQuality: {
+      warnings,
+      unpricedTickers: benchmarkHistory.dates?.length ? [] : [benchmarkTicker.toUpperCase()]
+    }
+  };
+}
+
+function firstBenchmarkDateByMonth(dates) {
+  const months = new Set();
+  const result = [];
+
+  for (const date of dates) {
+    const monthKey = date.slice(0, 7);
+    if (months.has(monthKey)) continue;
+    months.add(monthKey);
+    result.push(date);
+  }
+
+  return result;
 }
 
 function buildPositionPerformance(ticker, tickerActivities, quote) {
@@ -1366,6 +1493,16 @@ app.get("/api/portfolio/benchmark", async (request, response, next) => {
   try {
     const benchmark = String(request.query.benchmark || "SPY").toUpperCase().replace(/[^A-Z0-9.^-]/g, "");
     const data = await buildPortfolioBenchmark(benchmark || "SPY");
+    response.json(data);
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.get("/api/portfolio/dca-benchmark", async (request, response, next) => {
+  try {
+    const benchmark = String(request.query.benchmark || "SPY").toUpperCase().replace(/[^A-Z0-9.^-]/g, "");
+    const data = await buildPortfolioDcaBenchmark(benchmark || "SPY");
     response.json(data);
   } catch (error) {
     next(error);

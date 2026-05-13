@@ -7,6 +7,7 @@ import PromptsIndex from "./features/prompts/PromptsIndex.jsx";
 import StocksIndex from "./features/stocks/StocksIndex.jsx";
 import ActivitiesIndex from "./features/stocks/ActivitiesIndex.jsx";
 import PortfolioIndex from "./features/stocks/PortfolioIndex.jsx";
+import StockGraphPage from "./features/stocks/StockGraphPage.jsx";
 import { useRoute } from "./lib/router.js";
 
 const PostDetail = lazy(() => import("./features/posts/PostDetail.jsx"));
@@ -46,6 +47,16 @@ export default function App() {
         <DotField />
         <SiteHeader navigate={navigate} />
         <StocksIndex navigate={navigate} />
+      </main>
+    );
+  }
+
+  if (path === "/graph") {
+    return (
+      <main className="min-h-screen bg-white text-black">
+        <DotField />
+        <SiteHeader navigate={navigate} />
+        <StockGraphPage navigate={navigate} />
       </main>
     );
   }

@@ -34,6 +34,12 @@ export async function fetchPortfolioBenchmark(signal) {
   return response.json();
 }
 
+export async function fetchPortfolioDcaBenchmark(signal) {
+  const response = await fetch("/api/portfolio/dca-benchmark?benchmark=SPY", { signal });
+  if (!response.ok) throw new Error("Unable to load portfolio DCA benchmark");
+  return response.json();
+}
+
 export async function fetchStockPerformance(ticker, signal) {
   const response = await fetch(`/api/stocks/${ticker}/performance`, { signal });
   if (!response.ok) throw new Error("Unable to load stock performance");

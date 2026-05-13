@@ -1,13 +1,14 @@
 import { lazy, Suspense, useMemo } from "react";
 import { ArrowLeft } from "lucide-react";
 import StateMessage from "../../components/StateMessage.jsx";
-import { useActivities, usePortfolioBenchmark, usePortfolioPerformance, useStocks } from "./hooks.js";
+import { useActivities, usePortfolioBenchmark, usePortfolioDcaBenchmark, usePortfolioPerformance, useStocks } from "./hooks.js";
 import DashboardSectionHeader from "./components/DashboardSectionHeader.jsx";
 
 const PLWaterfall = lazy(() => import("./components/PLWaterfall.jsx"));
 const PortfolioBridge = lazy(() => import("./components/PortfolioBridge.jsx"));
 const ConvictionAllocation = lazy(() => import("./components/ConvictionAllocation.jsx"));
 const BenchmarkComparison = lazy(() => import("./components/BenchmarkComparison.jsx"));
+const DcaBenchmarkComparison = lazy(() => import("./components/DcaBenchmarkComparison.jsx"));
 
 const ALLOCATION_COLORS = [
   "#0f172a",
@@ -23,6 +24,7 @@ export default function PortfolioIndex({ navigate }) {
   const { activityData, loading: activityLoading, error: activityError } = useActivities();
   const { performance, loading: performanceLoading, error: performanceError } = usePortfolioPerformance();
   const { benchmark, loading: benchmarkLoading, error: benchmarkError } = usePortfolioBenchmark();
+  const { dcaBenchmark, loading: dcaLoading, error: dcaError } = usePortfolioDcaBenchmark();
 
   const activitySummaries = activityData?.summaries || {};
   const dataQuality = activityData?.dataQuality || { untrackedTickers: [], warnings: [] };
@@ -83,6 +85,9 @@ export default function PortfolioIndex({ navigate }) {
       <PerformanceOverview performance={performance} />
       <Suspense fallback={null}>
         <BenchmarkComparison benchmark={benchmark} error={benchmarkError} formatPercent={formatPercent} formatSignedUsd={formatSignedUsd} formatUsd={formatUsd} loading={benchmarkLoading} />
+      </Suspense>
+      <Suspense fallback={null}>
+        <DcaBenchmarkComparison dcaBenchmark={dcaBenchmark} error={dcaError} formatPercent={formatPercent} formatSignedUsd={formatSignedUsd} formatUsd={formatUsd} loading={dcaLoading} />
       </Suspense>
       <Suspense fallback={null}>
         <PortfolioBridge formatPercent={formatPercent} formatSignedUsd={formatSignedUsd} formatUsd={formatUsd} performance={performance} />

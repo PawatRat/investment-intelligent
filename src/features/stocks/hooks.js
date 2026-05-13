@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import {
   fetchActivities,
   fetchPortfolioBenchmark,
+  fetchPortfolioDcaBenchmark,
   fetchPortfolioPerformance,
   fetchStocks,
   fetchStock,
@@ -140,6 +141,24 @@ export function usePortfolioBenchmark() {
   }, []);
 
   return { benchmark, loading, error };
+}
+
+export function usePortfolioDcaBenchmark() {
+  const [dcaBenchmark, setDcaBenchmark] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    let ignore = false;
+    const controller = new AbortController();
+    fetchPortfolioDcaBenchmark(controller.signal)
+      .then((data) => { if (!ignore) setDcaBenchmark(data); })
+      .catch((e) => { if (!ignore && e.name !== "AbortError") setError(e.message); })
+      .finally(() => { if (!ignore) setLoading(false); });
+    return () => { ignore = true; controller.abort(); };
+  }, []);
+
+  return { dcaBenchmark, loading, error };
 }
 
 export function useStockPerformance(ticker) {
