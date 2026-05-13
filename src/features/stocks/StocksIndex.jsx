@@ -1,13 +1,17 @@
-import { useMemo, useState } from "react";
-import { ArrowLeft, BriefcaseBusiness } from "lucide-react";
+import { lazy, Suspense, useMemo, useState } from "react";
+import { ArrowLeft, BriefcaseBusiness, GitGraph, Table } from "lucide-react";
+import IconButton from "../../components/IconButton.jsx";
 import StateMessage from "../../components/StateMessage.jsx";
 import { useStocks } from "./hooks.js";
+
+const StockGraphView = lazy(() => import("./components/StockGraphView.jsx"));
 
 const STATUS_OPTIONS = ["All", "owned", "watchlist", "previously-owned", "sold", "archived"];
 const CONVICTION_OPTIONS = ["All", "strong", "holding", "watching", "re-evaluating"];
 
 export default function StocksIndex({ navigate }) {
   const { stocks, loading, error } = useStocks();
+  const [view, setView] = useState("table");
   const [statusFilter, setStatusFilter] = useState("All");
   const [convictionFilter, setConvictionFilter] = useState("All");
   const [labelFilter, setLabelFilter] = useState("All");
@@ -207,12 +211,22 @@ export default function StocksIndex({ navigate }) {
       </div>
 
       <div className="mt-6 flex items-center justify-between border-b border-slate-200 pb-3">
-        <p className="text-sm text-slate-600">
-          Showing <span className="font-medium text-slate-900">{filteredStocks.length}</span> of <span className="font-medium text-slate-900">{stocks.length}</span> thesis pages
-        </p>
-        {stats.watchlistCount > 0 && (
-          <p className="text-sm text-slate-500">{stats.watchlistCount} watchlist</p>
-        )}
+        <div className="flex items-center gap-3">
+          <p className="text-sm text-slate-600">
+            Showing <span className="font-medium text-slate-900">{filteredStocks.length}</span> of <span className="font-medium text-slate-900">{stocks.length}</span> thesis pages
+          </p>
+          {stats.watchlistCount > 0 && (
+            <p className="text-sm text-slate-500">{stats.watchlistCount} watchlist</p>
+          )}
+        </div>
+        <div className="flex items-center">
+          <IconButton active={view === "table"} label="Table view" onClick={() => setView("table")}>
+            <Table className="h-4 w-4" />
+          </IconButton>
+          <IconButton active={view === "graph"} label="Graph view" onClick={() => setView("graph")}>
+            <GitGraph className="h-4 w-4" />
+          </IconButton>
+        </div>
       </div>
 
       {filteredStocks.length === 0 && (
@@ -221,7 +235,7 @@ export default function StocksIndex({ navigate }) {
         </div>
       )}
 
-      {filteredStocks.length > 0 && (
+      {filteredStocks.length > 0 && view === "table" && (
         <div className="mt-6 overflow-x-auto border border-slate-200 bg-white">
           <table className="w-full border-collapse text-left">
             <thead className="border-b-2 border-slate-200">
@@ -282,6 +296,18 @@ export default function StocksIndex({ navigate }) {
             </tbody>
           </table>
         </div>
+      )}
+
+      {filteredStocks.length > 0 && view === "graph" && (
+        <Suspense
+          fallback={
+            <div className="mt-6 flex h-[480px] items-center justify-center border border-slate-200 bg-white">
+              <p className="text-sm text-slate-600">Loading graph...</p>
+            </div>
+          }
+        >
+          <StockGraphView navigate={navigate} stocks={filteredStocks} />
+        </Suspense>
       )}
     </section>
   );

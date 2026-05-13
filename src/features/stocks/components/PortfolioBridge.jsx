@@ -8,6 +8,7 @@ import {
   XAxis,
   YAxis
 } from "recharts";
+import DashboardSectionHeader from "./DashboardSectionHeader.jsx";
 
 const MARGIN = { top: 16, right: 18, bottom: 4, left: 16 };
 
@@ -61,14 +62,12 @@ export default function PortfolioBridge({ performance, formatUsd, formatSignedUs
 
   return (
     <section className="mt-6 border border-slate-200 border-t-2 border-t-black bg-white">
-      <div className="border-b border-slate-200 px-4 py-3">
-        <h2 className="text-sm font-semibold uppercase tracking-[0.14em] text-slate-900">Return Decomposition</h2>
-        <p className="mt-1 text-sm text-slate-500">
-          Contribution view of current total return.
-          {" "}
-          <span className="font-medium text-slate-700">{formatPercent(c.totalReturnPct)}</span>
-        </p>
-      </div>
+      <DashboardSectionHeader
+        cadenceLabel="After quote snapshot"
+        description={<>Contribution view of current total return. <span className="font-medium text-slate-700">{formatPercent(c.totalReturnPct)}</span></>}
+        title="Return Decomposition"
+        updatedLabel={formatDateTime(performance?.asOf)}
+      />
       <div className="px-4 py-4" style={{ height: 280 }}>
         <ResponsiveContainer width="100%" height="100%">
           <BarChart data={data} margin={MARGIN}>
@@ -121,4 +120,15 @@ function BridgeTooltip({ active, payload, formatUsd, formatSignedUsd }) {
       <div className="mt-0.5 text-xs text-slate-400">Running: {formatUsd(d.base + d.value)}</div>
     </div>
   );
+}
+
+function formatDateTime(value) {
+  if (!value) return "-";
+  return new Intl.DateTimeFormat("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+    hour: "numeric",
+    minute: "2-digit"
+  }).format(new Date(value));
 }

@@ -8,6 +8,7 @@ import {
   XAxis,
   YAxis
 } from "recharts";
+import DashboardSectionHeader from "./DashboardSectionHeader.jsx";
 
 const MARGIN = { top: 16, right: 20, bottom: 4, left: 12 };
 
@@ -18,12 +19,12 @@ export default function BenchmarkComparison({ benchmark, error, loading, formatP
 
   return (
     <section className="mt-6 border border-slate-200 border-t-2 border-t-black bg-white">
-      <div className="border-b border-slate-200 px-4 py-3">
-        <h2 className="text-sm font-semibold uppercase tracking-[0.14em] text-slate-900">Portfolio vs S&amp;P 500</h2>
-        <p className="mt-1 text-sm text-slate-500">
-          Same cash-flow comparison against {benchmark?.benchmark || "SPY"}.
-        </p>
-      </div>
+      <DashboardSectionHeader
+        cadenceLabel={getBenchmarkCadence(benchmark?.source)}
+        description={`Same cash-flow comparison against ${benchmark?.benchmark || "SPY"}.`}
+        title="Portfolio vs S&P 500"
+        updatedLabel={formatDateTime(benchmark?.asOf)}
+      />
 
       {loading && (
         <p className="px-4 py-5 text-sm text-slate-600">Loading benchmark history...</p>
@@ -115,4 +116,25 @@ function formatShortDate(value) {
 function formatLongDate(value) {
   if (!value) return "";
   return new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", year: "numeric" }).format(new Date(`${value}T00:00:00.000Z`));
+}
+
+function formatDateTime(value) {
+  if (!value) return "-";
+  return new Intl.DateTimeFormat("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+    hour: "numeric",
+    minute: "2-digit"
+  }).format(new Date(value));
+}
+
+function getBenchmarkCadence(source = "") {
+  if (source.includes("pocketportfolio-monthly")) {
+    return "Daily; monthly fallback";
+  }
+  if (source.includes("historical cache")) {
+    return "Daily; cached fallback";
+  }
+  return "Daily history";
 }

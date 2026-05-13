@@ -19,6 +19,7 @@ const quoteCache = new Map();
 const quoteCacheTtlMs = 12 * 60 * 60 * 1000;
 const historicalPriceCache = new Map();
 const historicalPriceCacheTtlMs = 12 * 60 * 60 * 1000;
+const HISTORICAL_REQUEST_DELAY_MS = 250;
 const marketDataHeaders = {
   "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0 Safari/537.36",
   "Accept": "application/json,text/csv,text/plain,*/*"
@@ -674,6 +675,7 @@ async function fetchYahooHistoricalPrices(ticker, startDate, endDate) {
     ticker: normalizedTicker,
     prices: new Map(),
     dates: [],
+    source: "yahoo-chart",
     error: ""
   };
 
@@ -720,10 +722,29 @@ async function fetchYahooHistoricalPrices(ticker, startDate, endDate) {
     };
     await persistHistoricalCache(persistentCache);
   } catch (error) {
-    result.error = error.message || "Unable to load historical prices";
+    const yahooError = error.message || "Unable to load historical prices";
     if (cachedRows.length > 0) {
       result.prices = rowsToPriceMap(cachedRows);
       result.dates = [...result.prices.keys()].sort();
+      result.source = "historical-cache";
+      result.error = `${yahooError}; using stored historical cache`;
+    } else {
+      try {
+        const fallbackRows = await fetchPocketPortfolioHistoricalPrices(normalizedTicker, startDate, endDate);
+        result.prices = rowsToPriceMap(fallbackRows);
+        result.dates = [...result.prices.keys()].sort();
+        result.source = "pocketportfolio-monthly";
+        result.error = `Yahoo failed (${yahooError}); using PocketPortfolio monthly fallback`;
+
+        persistentCache[normalizedTicker] = {
+          updatedAt: new Date(now).toISOString(),
+          source: result.source,
+          rows: mapToRows(result.prices)
+        };
+        await persistHistoricalCache(persistentCache);
+      } catch (fallbackError) {
+        result.error = `${yahooError}; PocketPortfolio fallback failed: ${fallbackError.message || "Unable to load fallback prices"}`;
+      }
     }
   }
 
@@ -731,43 +752,92 @@ async function fetchYahooHistoricalPrices(ticker, startDate, endDate) {
   return result;
 }
 
-async function fetchYahooHistoricalPriceRange(ticker, startDate, endDate) {
-  const period1 = toUnixSeconds(startDate);
-  const period2 = toUnixSeconds(addDays(endDate, 1));
-  const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(ticker)}?period1=${period1}&period2=${period2}&interval=1d&events=history%7Cdiv%7Csplit`;
+async function fetchPocketPortfolioHistoricalPrices(ticker, startDate, endDate) {
+  const url = `https://www.pocketportfolio.app/api/tickers/${encodeURIComponent(ticker)}/json?range=max`;
   const response = await fetch(url, { headers: marketDataHeaders });
   if (!response.ok) {
-    throw new Error(`Historical price request failed with ${response.status}`);
+    throw new Error(`PocketPortfolio request failed with ${response.status}`);
   }
 
   const payload = await response.json();
-  const chartResult = payload?.chart?.result?.[0];
-  const timestamps = chartResult?.timestamp || [];
-  const quote = chartResult?.indicators?.quote?.[0] || {};
-  const adjClose = chartResult?.indicators?.adjclose?.[0]?.adjclose || [];
-  const close = quote.close || [];
-  const rows = [];
-
-  for (let index = 0; index < timestamps.length; index += 1) {
-    const price = Number.isFinite(adjClose[index]) ? adjClose[index] : close[index];
-    if (!Number.isFinite(price) || price <= 0) continue;
-
-    rows.push({
-      date: new Date(timestamps[index] * 1000).toISOString().slice(0, 10),
-      price
-    });
-  }
+  const rows = (payload?.data || [])
+    .map((row) => ({
+      date: String(row.date || ""),
+      price: Number(row.close)
+    }))
+    .filter((row) => row.date >= startDate && row.date <= endDate && Number.isFinite(row.price) && row.price > 0)
+    .sort((a, b) => a.date.localeCompare(b.date));
 
   if (rows.length === 0) {
-    throw new Error("No historical prices returned");
+    throw new Error("No PocketPortfolio prices returned");
   }
 
   return rows;
 }
 
+async function delay(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function fetchYahooHistoricalPriceRange(ticker, startDate, endDate) {
+  const period1 = toUnixSeconds(startDate);
+  const period2 = toUnixSeconds(addDays(endDate, 1));
+  const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(ticker)}?period1=${period1}&period2=${period2}&interval=1d&events=history%7Cdiv%7Csplit`;
+
+  let lastError;
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    if (attempt > 0) {
+      await delay((attempt + 1) * 1000);
+    }
+    try {
+      const response = await fetch(url, { headers: marketDataHeaders });
+      if (!response.ok) {
+        if (response.status === 429 && attempt < 2) continue;
+        throw new Error(`Historical price request failed with ${response.status}`);
+      }
+
+      const payload = await response.json();
+      const chartResult = payload?.chart?.result?.[0];
+      const timestamps = chartResult?.timestamp || [];
+      const quote = chartResult?.indicators?.quote?.[0] || {};
+      const adjClose = chartResult?.indicators?.adjclose?.[0]?.adjclose || [];
+      const close = quote.close || [];
+      const rows = [];
+
+      for (let index = 0; index < timestamps.length; index += 1) {
+        const price = Number.isFinite(adjClose[index]) ? adjClose[index] : close[index];
+        if (!Number.isFinite(price) || price <= 0) continue;
+
+        rows.push({
+          date: new Date(timestamps[index] * 1000).toISOString().slice(0, 10),
+          price
+        });
+      }
+
+      if (rows.length === 0) {
+        throw new Error("No historical prices returned");
+      }
+
+      return rows;
+    } catch (error) {
+      lastError = error.message || "Historical price request failed";
+    }
+  }
+
+  throw new Error(lastError || "Historical price request failed after retries");
+}
+
 function getPriceOnOrBefore(priceMap, date, previousPrice) {
   const exactPrice = priceMap.get(date);
   if (Number.isFinite(exactPrice)) return exactPrice;
+
+  let latestPrice = null;
+  for (const [priceDate, price] of priceMap.entries()) {
+    if (priceDate > date) break;
+    if (Number.isFinite(price)) latestPrice = price;
+  }
+  if (Number.isFinite(latestPrice)) return latestPrice;
+
   return Number.isFinite(previousPrice) ? previousPrice : null;
 }
 
@@ -794,6 +864,9 @@ async function buildPortfolioBenchmark(benchmarkTicker = "SPY") {
   const allTickers = [...new Set([...tickers, benchmarkTicker.toUpperCase()])];
   const historicalResults = [];
   for (const ticker of allTickers) {
+    if (historicalResults.length > 0) {
+      await delay(HISTORICAL_REQUEST_DELAY_MS);
+    }
     historicalResults.push(await fetchYahooHistoricalPrices(ticker, startDate, endDate));
   }
   const historicalByTicker = Object.fromEntries(historicalResults.map((result) => [result.ticker, result]));
@@ -841,7 +914,11 @@ async function buildPortfolioBenchmark(benchmarkTicker = "SPY") {
   const warnings = historicalResults
     .filter((result) => result.error)
     .map((result) => ({ ticker: result.ticker, warning: result.error }));
-  const unpricedTickers = new Set(warnings.map((warning) => warning.ticker));
+  const unpricedTickers = new Set(
+    historicalResults
+      .filter((result) => result.error && !result.dates.length)
+      .map((result) => result.ticker)
+  );
 
   const series = [];
 
@@ -884,7 +961,6 @@ async function buildPortfolioBenchmark(benchmarkTicker = "SPY") {
       const history = historicalByTicker[ticker];
       const price = getPriceOnOrBefore(history?.prices || new Map(), date, lastPrices[ticker]);
       if (!Number.isFinite(price)) {
-        unpricedTickers.add(ticker);
         continue;
       }
 
@@ -915,7 +991,7 @@ async function buildPortfolioBenchmark(benchmarkTicker = "SPY") {
   const benchmarkResult = {
     benchmark: benchmarkTicker.toUpperCase(),
     asOf: new Date().toISOString(),
-    source: "yahoo-chart",
+    source: buildBenchmarkSourceLabel(historicalResults),
     startDate,
     endDate,
     series,
@@ -938,6 +1014,17 @@ async function buildPortfolioBenchmark(benchmarkTicker = "SPY") {
   }
 
   return benchmarkResult;
+}
+
+function buildBenchmarkSourceLabel(historicalResults) {
+  const sources = new Set(historicalResults.map((result) => result.source).filter(Boolean));
+  if (sources.has("pocketportfolio-monthly")) {
+    return "yahoo-chart + pocketportfolio-monthly fallback";
+  }
+  if (sources.has("historical-cache")) {
+    return "yahoo-chart + historical cache";
+  }
+  return "yahoo-chart";
 }
 
 function buildPositionPerformance(ticker, tickerActivities, quote) {
@@ -1241,7 +1328,13 @@ app.get("/api/stocks", async (_request, response, next) => {
             date: timeline[0].date,
             title: timeline[0].title,
             summary: timeline[0].summary
-          } : null
+          } : null,
+          timeline: timeline.map((note) => ({
+            slug: note.slug,
+            type: note.type,
+            date: note.date,
+            title: note.title
+          }))
         };
       })
     );

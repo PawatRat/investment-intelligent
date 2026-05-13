@@ -9,6 +9,7 @@ import {
   XAxis,
   YAxis
 } from "recharts";
+import DashboardSectionHeader from "./DashboardSectionHeader.jsx";
 
 const MARGIN = { top: 18, right: 24, bottom: 8, left: 12 };
 
@@ -77,10 +78,12 @@ export default function ConvictionAllocation({ stocks, performance, formatPercen
 
   return (
     <section className="mt-6 border border-slate-200 border-t-2 border-t-black bg-white">
-      <div className="border-b border-slate-200 px-4 py-3">
-        <h2 className="text-sm font-semibold uppercase tracking-[0.14em] text-slate-900">Conviction vs Allocation</h2>
-        <p className="mt-1 text-sm text-slate-500">Sizing check: allocation percent by conviction level.</p>
-      </div>
+      <DashboardSectionHeader
+        cadenceLabel="After quote snapshot"
+        description="Sizing check: allocation percent by conviction level."
+        title="Conviction vs Allocation"
+        updatedLabel={formatDateTime(performance?.asOf)}
+      />
       <div className="flex flex-wrap gap-x-5 gap-y-1 border-b border-slate-200 px-4 py-2">
         {distinctConvictions.map((conviction) => (
           <div key={conviction} className="flex items-center gap-1.5 text-[11px]">
@@ -160,4 +163,15 @@ function AllocTooltip({ active, payload, formatPercent }) {
       )}
     </div>
   );
+}
+
+function formatDateTime(value) {
+  if (!value) return "-";
+  return new Intl.DateTimeFormat("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+    hour: "numeric",
+    minute: "2-digit"
+  }).format(new Date(value));
 }

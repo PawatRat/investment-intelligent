@@ -2,6 +2,7 @@ import { lazy, Suspense, useMemo } from "react";
 import { ArrowLeft } from "lucide-react";
 import StateMessage from "../../components/StateMessage.jsx";
 import { useActivities, usePortfolioBenchmark, usePortfolioPerformance, useStocks } from "./hooks.js";
+import DashboardSectionHeader from "./components/DashboardSectionHeader.jsx";
 
 const PLWaterfall = lazy(() => import("./components/PLWaterfall.jsx"));
 const PortfolioBridge = lazy(() => import("./components/PortfolioBridge.jsx"));
@@ -96,7 +97,7 @@ export default function PortfolioIndex({ navigate }) {
       <PositionsTable performance={performance} stocks={stocks} />
       <ActivityOverview stats={portfolioStats} />
       <UntrackedTickers tickers={untrackedTickers} summaries={activitySummaries} />
-      <DataQualityPanel unpricedTickers={unpricedTickers} untrackedTickers={untrackedTickers} warnings={qualityWarnings} />
+      <DataQualityPanel latestActivity={portfolioStats.latestActivity} unpricedTickers={unpricedTickers} untrackedTickers={untrackedTickers} warnings={qualityWarnings} />
     </section>
   );
 }
@@ -115,10 +116,12 @@ function PerformanceOverview({ performance }) {
 
   return (
     <section className="mt-6 border border-slate-200 border-t-2 border-t-black bg-white">
-      <div className="border-b border-slate-200 px-4 py-3">
-        <h2 className="text-sm font-semibold uppercase tracking-[0.14em] text-slate-900">Portfolio Performance</h2>
-        <p className="mt-1 text-sm text-slate-500">Latest quote snapshot from {performance?.source || "market data"} as of {formatDateTime(performance?.asOf)}.</p>
-      </div>
+      <DashboardSectionHeader
+        cadenceLabel="Quotes every 12h"
+        description={`Latest quote snapshot from ${performance?.source || "market data"}.`}
+        title="Portfolio Performance"
+        updatedLabel={formatDateTime(performance?.asOf)}
+      />
       <div className="grid divide-y divide-slate-200 md:grid-cols-3 md:divide-x md:divide-y-0 lg:grid-cols-6">
         <Metric label="Market value" value={formatUsd(summary.marketValue)} />
         <Metric label="Cost basis" value={formatUsd(summary.costBasis)} />
@@ -183,10 +186,12 @@ function PositionsTable({ performance, stocks }) {
 
   return (
     <section className="mt-6 border border-slate-200 border-t-2 border-t-black bg-white">
-      <div className="border-b border-slate-200 px-4 py-3">
-        <h2 className="text-sm font-semibold uppercase tracking-[0.14em] text-slate-900">Open Positions</h2>
-        <p className="mt-1 text-sm text-slate-500">Every current holding from the activity ledger, including tickers without thesis pages.</p>
-      </div>
+      <DashboardSectionHeader
+        cadenceLabel="After quote snapshot"
+        description="Every current holding from the activity ledger, including tickers without thesis pages."
+        title="Open Positions"
+        updatedLabel={formatDateTime(performance?.asOf)}
+      />
       <div className="overflow-x-auto">
         <table className="w-full border-collapse text-left">
           <thead className="border-b-2 border-slate-200">
@@ -229,10 +234,12 @@ function PositionsTable({ performance, stocks }) {
 function ActivityOverview({ stats }) {
   return (
     <section className="mt-6 border border-slate-200 border-t-2 border-t-black bg-white">
-      <div className="border-b border-slate-200 px-4 py-3">
-        <h2 className="text-sm font-semibold uppercase tracking-[0.14em] text-slate-900">Portfolio Activity Check</h2>
-        <p className="mt-1 text-sm text-slate-500">Ledger coverage used for tracking, average cost, dividends, and data quality.</p>
-      </div>
+      <DashboardSectionHeader
+        cadenceLabel="On CSV change"
+        description="Ledger coverage used for tracking, average cost, dividends, and data quality."
+        title="Portfolio Activity Check"
+        updatedLabel={formatLatestActivityDate(stats.latestActivity)}
+      />
       <div className="grid divide-y divide-slate-200 md:grid-cols-4 md:divide-x md:divide-y-0">
         <Metric label="Tracked stock pages" value={stats.trackedTickers} />
         <Metric label="Tracked activity rows" value={stats.trackedActivityCount} />
@@ -270,10 +277,12 @@ function UntrackedTickers({ tickers, summaries }) {
 
   return (
     <section className="mt-8 border border-slate-200 border-t-2 border-t-black bg-white">
-      <div className="border-b border-slate-200 px-4 py-3">
-        <h2 className="text-sm font-semibold uppercase tracking-[0.14em] text-slate-900">Activity Without Stock Page</h2>
-        <p className="mt-1 text-sm text-slate-500">These tickers exist in the activity ledger but do not have a thesis page yet.</p>
-      </div>
+      <DashboardSectionHeader
+        cadenceLabel="On CSV change"
+        description="These tickers exist in the activity ledger but do not have a thesis page yet."
+        title="Activity Without Stock Page"
+        updatedLabel={formatLatestActivityDate(Object.values(summaries).map((summary) => summary.latestActivity).filter(Boolean).sort((a, b) => b.date.localeCompare(a.date))[0])}
+      />
       <div className="overflow-x-auto">
         <table className="w-full border-collapse text-left">
           <thead className="border-b-2 border-slate-200">
@@ -309,13 +318,15 @@ function UntrackedTickers({ tickers, summaries }) {
   );
 }
 
-function DataQualityPanel({ unpricedTickers, untrackedTickers, warnings }) {
+function DataQualityPanel({ latestActivity, unpricedTickers, untrackedTickers, warnings }) {
   return (
     <section className="mt-8 border border-slate-200 border-t-2 border-t-black bg-white">
-      <div className="border-b border-slate-200 px-4 py-3">
-        <h2 className="text-sm font-semibold uppercase tracking-[0.14em] text-slate-900">Data Quality</h2>
-        <p className="mt-1 text-sm text-slate-500">Rows to review before relying on cost basis and tracking totals.</p>
-      </div>
+      <DashboardSectionHeader
+        cadenceLabel="On CSV change"
+        description="Rows to review before relying on cost basis and tracking totals."
+        title="Data Quality"
+        updatedLabel={formatLatestActivityDate(latestActivity)}
+      />
       <div className="grid gap-0 md:grid-cols-[minmax(0,1fr)_280px]">
         <div className="border-b border-slate-200 md:border-b-0 md:border-r md:border-slate-200">
           {warnings.length > 0 ? (
@@ -440,4 +451,24 @@ function formatLatestActivity(activity) {
   }
 
   return `${activity.date} | ${activity.activity}`;
+}
+
+function formatLatestActivityDate(activity) {
+  if (!activity?.date) {
+    return "-";
+  }
+
+  return formatDateOnly(activity.date);
+}
+
+function formatDateOnly(value) {
+  if (!value) {
+    return "-";
+  }
+
+  return new Intl.DateTimeFormat("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric"
+  }).format(new Date(`${value}T00:00:00.000Z`));
 }
