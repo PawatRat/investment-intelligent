@@ -44,12 +44,29 @@ export default function PostIndex({ navigate }) {
             graph notes, images, tags, filters, timelines, and direct post links.
           </p>
         </div>
-        <div className="border-l border-neutral-200 pl-8 text-sm leading-6 text-neutral-700">
-          <p>
+        <div className="border-l border-neutral-200 pl-8">
+          <p className="text-sm leading-6 text-neutral-700">
             Posts are files in <span className="bg-neutral-100 px-1 py-0.5 font-mono text-[13px] text-neutral-800">content/posts</span>.
             The browser never writes content in this version; it reads published entries from
             the API and renders them as multiple blog views.
           </p>
+          <div className="mt-6 border border-neutral-200 bg-white p-4">
+            <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-neutral-500">
+              <GitGraph className="h-3.5 w-3.5" />
+              Knowledge Graph
+            </div>
+            <p className="mt-2 text-sm leading-6 text-neutral-600">
+              Explore how posts, stocks, and timeline notes connect across the entire project.
+            </p>
+            <button
+              className="mt-3 inline-flex w-full items-center justify-center gap-2 border border-neutral-200 px-3 py-2 text-[13px] font-semibold text-neutral-900 transition-colors hover:bg-neutral-900 hover:text-white"
+              onClick={() => navigate("/graph")}
+              type="button"
+            >
+              <GitGraph className="h-4 w-4" />
+              Open graph view
+            </button>
+          </div>
         </div>
       </div>
 
