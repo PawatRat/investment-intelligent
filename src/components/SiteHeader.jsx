@@ -1,4 +1,4 @@
-import { List, Terminal, TrendingUp } from "lucide-react";
+import { BriefcaseBusiness, List, Terminal, TrendingUp } from "lucide-react";
 import { siteConfig } from "../config/site.js";
 
 export default function SiteHeader({ navigate }) {
@@ -22,6 +22,14 @@ export default function SiteHeader({ navigate }) {
         </button>
 
         <div className="flex items-center gap-3">
+          <button
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-[13px] font-medium text-neutral-500 transition-colors hover:text-neutral-900"
+            onClick={() => navigate("/portfolio")}
+            type="button"
+          >
+            <BriefcaseBusiness className="h-3.5 w-3.5" />
+            <span className="hidden sm:inline">Portfolio</span>
+          </button>
           <button
             className="inline-flex items-center gap-1.5 px-3 py-1.5 text-[13px] font-medium text-neutral-500 transition-colors hover:text-neutral-900"
             onClick={() => navigate("/stocks")}

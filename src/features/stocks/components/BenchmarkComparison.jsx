@@ -14,6 +14,7 @@ const MARGIN = { top: 16, right: 20, bottom: 4, left: 12 };
 export default function BenchmarkComparison({ benchmark, error, loading, formatPercent, formatSignedUsd, formatUsd }) {
   const series = benchmark?.series || [];
   const summary = benchmark?.summary;
+  const providerWarning = benchmark?.dataQuality?.warnings?.[0]?.warning || "";
 
   return (
     <section className="mt-6 border border-slate-200 border-t-2 border-t-black bg-white">
@@ -33,7 +34,9 @@ export default function BenchmarkComparison({ benchmark, error, loading, formatP
       )}
 
       {!loading && !error && series.length === 0 && (
-        <p className="px-4 py-5 text-sm text-slate-600">No benchmark history available yet.</p>
+        <p className="px-4 py-5 text-sm text-slate-600">
+          {providerWarning ? `Benchmark history unavailable: ${providerWarning}.` : "No benchmark history available yet."}
+        </p>
       )}
 
       {!loading && !error && series.length > 0 && (

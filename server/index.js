@@ -12,10 +12,17 @@ const promptsDir = path.join(rootDir, "prompts");
 const stocksDir = path.join(rootDir, "content", "stocks");
 const uploadsDir = path.join(rootDir, "public", "uploads");
 const activitiesFile = path.join(rootDir, "activities_portfolio.csv");
+const portfolioCacheDir = path.join(rootDir, ".cache", "portfolio");
+const quoteCacheFile = path.join(portfolioCacheDir, "quotes.json");
+const historicalCacheFile = path.join(portfolioCacheDir, "historical-prices.json");
 const quoteCache = new Map();
-const quoteCacheTtlMs = 5 * 60 * 1000;
+const quoteCacheTtlMs = 12 * 60 * 60 * 1000;
 const historicalPriceCache = new Map();
-const historicalPriceCacheTtlMs = 6 * 60 * 60 * 1000;
+const historicalPriceCacheTtlMs = 12 * 60 * 60 * 1000;
+const marketDataHeaders = {
+  "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0 Safari/537.36",
+  "Accept": "application/json,text/csv,text/plain,*/*"
+};
 const tickerAliases = {
   SPLG: "SPYM"
 };
@@ -457,6 +464,73 @@ function uniqueWarnings(warnings) {
   });
 }
 
+async function readJsonFile(filePath, fallback) {
+  try {
+    const source = await fs.readFile(filePath, "utf8");
+    return JSON.parse(source);
+  } catch (error) {
+    if (error.code === "ENOENT") return fallback;
+    throw error;
+  }
+}
+
+async function writeJsonFile(filePath, value) {
+  await fs.mkdir(path.dirname(filePath), { recursive: true });
+  await fs.writeFile(filePath, `${JSON.stringify(value, null, 2)}\n`, "utf8");
+}
+
+function hydrateQuoteCache(source) {
+  for (const [ticker, entry] of Object.entries(source || {})) {
+    if (!entry?.quote) continue;
+    quoteCache.set(ticker, entry);
+  }
+}
+
+async function readPersistentQuoteCache() {
+  const source = await readJsonFile(quoteCacheFile, {});
+  hydrateQuoteCache(source);
+  return source;
+}
+
+async function persistQuoteCache() {
+  await writeJsonFile(quoteCacheFile, Object.fromEntries(quoteCache));
+}
+
+function mapToRows(priceMap) {
+  return [...priceMap.entries()]
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([date, price]) => ({ date, price }));
+}
+
+function rowsToPriceMap(rows) {
+  return new Map((rows || [])
+    .filter((row) => row?.date && Number.isFinite(row.price))
+    .map((row) => [row.date, row.price]));
+}
+
+function benchmarkCacheFile(benchmarkTicker) {
+  return path.join(portfolioCacheDir, `benchmark-${benchmarkTicker.toUpperCase().replace(/[^A-Z0-9.-]/g, "")}.json`);
+}
+
+async function readPersistentHistoricalCache() {
+  return readJsonFile(historicalCacheFile, {});
+}
+
+async function persistHistoricalCache(source) {
+  await writeJsonFile(historicalCacheFile, source);
+}
+
+async function readBenchmarkSeriesCache(benchmarkTicker) {
+  return readJsonFile(benchmarkCacheFile(benchmarkTicker), null);
+}
+
+async function persistBenchmarkSeriesCache(benchmarkTicker, data) {
+  await writeJsonFile(benchmarkCacheFile(benchmarkTicker), {
+    savedAt: new Date().toISOString(),
+    ...data
+  });
+}
+
 async function fetchYahooQuote(ticker) {
   const normalizedTicker = ticker.toUpperCase();
   const cached = quoteCache.get(normalizedTicker);
@@ -466,16 +540,26 @@ async function fetchYahooQuote(ticker) {
     return cached.quote;
   }
 
+  const persistentCache = await readPersistentQuoteCache();
+  const persistentEntry = persistentCache[normalizedTicker];
+  if (persistentEntry?.quote && now - persistentEntry.fetchedAt < quoteCacheTtlMs) {
+    quoteCache.set(normalizedTicker, persistentEntry);
+    return persistentEntry.quote;
+  }
+
   const quote = {
     ticker: normalizedTicker,
     price: null,
     currency: "USD",
     marketTime: "",
+    source: "yahoo-chart",
     error: ""
   };
 
   try {
-    const response = await fetch(`https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(normalizedTicker)}?range=1d&interval=1d`);
+    const response = await fetch(`https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(normalizedTicker)}?range=1d&interval=1d`, {
+      headers: marketDataHeaders
+    });
     if (!response.ok) {
       throw new Error(`Quote request failed with ${response.status}`);
     }
@@ -499,11 +583,80 @@ async function fetchYahooQuote(ticker) {
     quote.price = roundNumber(price, 4);
     quote.currency = meta.currency || "USD";
     quote.marketTime = marketTime;
+    quote.source = "yahoo-chart";
   } catch (error) {
-    quote.error = error.message || "Unable to load quote";
+    const yahooError = error.message || "Unable to load Yahoo quote";
+    const fallbackQuote = await fetchStooqQuote(normalizedTicker);
+    if (Number.isFinite(fallbackQuote.price)) {
+      quote.price = fallbackQuote.price;
+      quote.currency = fallbackQuote.currency;
+      quote.marketTime = fallbackQuote.marketTime;
+      quote.source = fallbackQuote.source;
+      quote.error = "";
+    } else {
+      const staleQuote = cached?.quote || persistentEntry?.quote;
+      if (Number.isFinite(staleQuote?.price)) {
+        quote.price = staleQuote.price;
+        quote.currency = staleQuote.currency || "USD";
+        quote.marketTime = staleQuote.marketTime || "";
+        quote.source = "stale-cache";
+        quote.error = "";
+      } else {
+        quote.error = fallbackQuote.error
+          ? `${yahooError}; Stooq fallback failed: ${fallbackQuote.error}`
+          : yahooError;
+      }
+    }
   }
 
   quoteCache.set(normalizedTicker, { fetchedAt: now, quote });
+  if (Number.isFinite(quote.price)) {
+    await persistQuoteCache();
+  }
+  return quote;
+}
+
+async function fetchStooqQuote(ticker) {
+  const normalizedTicker = ticker.toUpperCase();
+  const symbol = `${normalizedTicker.toLowerCase()}.us`;
+  const quote = {
+    ticker: normalizedTicker,
+    price: null,
+    currency: "USD",
+    marketTime: "",
+    source: "stooq-latest",
+    error: ""
+  };
+
+  try {
+    const url = `https://stooq.com/q/l/?s=${encodeURIComponent(symbol)}&f=sd2t2ohlcv&h&e=csv`;
+    const response = await fetch(url, { headers: marketDataHeaders });
+    if (!response.ok) {
+      throw new Error(`Stooq quote request failed with ${response.status}`);
+    }
+
+    const csv = await response.text();
+    const [headerLine, valueLine] = csv.trim().split(/\r?\n/);
+    if (!headerLine || !valueLine) {
+      throw new Error("No Stooq quote returned");
+    }
+
+    const headers = parseCsvLine(headerLine);
+    const values = parseCsvLine(valueLine);
+    const row = Object.fromEntries(headers.map((header, index) => [header, values[index] || ""]));
+    const close = parseNumber(row.Close);
+    if (!Number.isFinite(close) || close <= 0) {
+      throw new Error("Missing Stooq close price");
+    }
+
+    quote.price = roundNumber(close, 4);
+    quote.marketTime = row.Date
+      ? new Date(`${row.Date}T${row.Time || "00:00:00"}Z`).toISOString()
+      : new Date().toISOString();
+  } catch (error) {
+    quote.error = error.message || "Unable to load Stooq quote";
+  }
+
   return quote;
 }
 
@@ -524,40 +677,92 @@ async function fetchYahooHistoricalPrices(ticker, startDate, endDate) {
     error: ""
   };
 
+  const persistentCache = await readPersistentHistoricalCache();
+  const tickerCache = persistentCache[normalizedTicker] || { rows: [] };
+  const cachedRows = (tickerCache.rows || [])
+    .filter((row) => row.date >= startDate && row.date <= endDate && Number.isFinite(row.price))
+    .sort((a, b) => a.date.localeCompare(b.date));
+
   try {
-    const period1 = toUnixSeconds(startDate);
-    const period2 = toUnixSeconds(addDays(endDate, 1));
-    const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(normalizedTicker)}?period1=${period1}&period2=${period2}&interval=1d&events=history%7Cdiv%7Csplit`;
-    const response = await fetch(url);
-    if (!response.ok) {
-      throw new Error(`Historical price request failed with ${response.status}`);
+    const allRows = [...cachedRows];
+    const earliestCachedDate = cachedRows[0]?.date || "";
+    const latestCachedDate = cachedRows.at(-1)?.date || "";
+    const ranges = [];
+
+    if (!cachedRows.length) {
+      ranges.push([startDate, endDate]);
+    } else {
+      if (startDate < earliestCachedDate) {
+        ranges.push([startDate, addDays(earliestCachedDate, -1)]);
+      }
+      if (latestCachedDate < endDate) {
+        ranges.push([addDays(latestCachedDate, 1), endDate]);
+      }
     }
 
-    const payload = await response.json();
-    const chartResult = payload?.chart?.result?.[0];
-    const timestamps = chartResult?.timestamp || [];
-    const quote = chartResult?.indicators?.quote?.[0] || {};
-    const adjClose = chartResult?.indicators?.adjclose?.[0]?.adjclose || [];
-    const close = quote.close || [];
-
-    for (let index = 0; index < timestamps.length; index += 1) {
-      const price = Number.isFinite(adjClose[index]) ? adjClose[index] : close[index];
-      if (!Number.isFinite(price) || price <= 0) continue;
-
-      const date = new Date(timestamps[index] * 1000).toISOString().slice(0, 10);
-      result.prices.set(date, price);
-      result.dates.push(date);
+    for (const [rangeStart, rangeEnd] of ranges) {
+      if (rangeStart > rangeEnd) continue;
+      const rangeRows = await fetchYahooHistoricalPriceRange(normalizedTicker, rangeStart, rangeEnd);
+      allRows.push(...rangeRows);
     }
+
+    const mergedRows = mapToRows(rowsToPriceMap(allRows));
+    result.prices = rowsToPriceMap(mergedRows.filter((row) => row.date >= startDate && row.date <= endDate));
+    result.dates = [...result.prices.keys()].sort();
 
     if (result.dates.length === 0) {
       throw new Error("No historical prices returned");
     }
+
+    persistentCache[normalizedTicker] = {
+      updatedAt: new Date(now).toISOString(),
+      rows: mergedRows
+    };
+    await persistHistoricalCache(persistentCache);
   } catch (error) {
     result.error = error.message || "Unable to load historical prices";
+    if (cachedRows.length > 0) {
+      result.prices = rowsToPriceMap(cachedRows);
+      result.dates = [...result.prices.keys()].sort();
+    }
   }
 
   historicalPriceCache.set(cacheKey, { fetchedAt: now, result });
   return result;
+}
+
+async function fetchYahooHistoricalPriceRange(ticker, startDate, endDate) {
+  const period1 = toUnixSeconds(startDate);
+  const period2 = toUnixSeconds(addDays(endDate, 1));
+  const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(ticker)}?period1=${period1}&period2=${period2}&interval=1d&events=history%7Cdiv%7Csplit`;
+  const response = await fetch(url, { headers: marketDataHeaders });
+  if (!response.ok) {
+    throw new Error(`Historical price request failed with ${response.status}`);
+  }
+
+  const payload = await response.json();
+  const chartResult = payload?.chart?.result?.[0];
+  const timestamps = chartResult?.timestamp || [];
+  const quote = chartResult?.indicators?.quote?.[0] || {};
+  const adjClose = chartResult?.indicators?.adjclose?.[0]?.adjclose || [];
+  const close = quote.close || [];
+  const rows = [];
+
+  for (let index = 0; index < timestamps.length; index += 1) {
+    const price = Number.isFinite(adjClose[index]) ? adjClose[index] : close[index];
+    if (!Number.isFinite(price) || price <= 0) continue;
+
+    rows.push({
+      date: new Date(timestamps[index] * 1000).toISOString().slice(0, 10),
+      price
+    });
+  }
+
+  if (rows.length === 0) {
+    throw new Error("No historical prices returned");
+  }
+
+  return rows;
 }
 
 function getPriceOnOrBefore(priceMap, date, previousPrice) {
@@ -587,14 +792,32 @@ async function buildPortfolioBenchmark(benchmarkTicker = "SPY") {
   const endDate = new Date().toISOString().slice(0, 10);
   const tickers = [...new Set(datedActivities.map((activity) => activity.ticker))].sort();
   const allTickers = [...new Set([...tickers, benchmarkTicker.toUpperCase()])];
-  const historicalResults = await Promise.all(
-    allTickers.map((ticker) => fetchYahooHistoricalPrices(ticker, startDate, endDate))
-  );
+  const historicalResults = [];
+  for (const ticker of allTickers) {
+    historicalResults.push(await fetchYahooHistoricalPrices(ticker, startDate, endDate));
+  }
   const historicalByTicker = Object.fromEntries(historicalResults.map((result) => [result.ticker, result]));
   const benchmarkHistory = historicalByTicker[benchmarkTicker.toUpperCase()];
   const benchmarkDates = benchmarkHistory?.dates || [];
 
   if (!benchmarkDates.length) {
+    const storedBenchmark = await readBenchmarkSeriesCache(benchmarkTicker);
+    if (storedBenchmark?.series?.length) {
+      return {
+        ...storedBenchmark,
+        asOf: new Date().toISOString(),
+        source: `${storedBenchmark.source || "yahoo-chart"} + stored benchmark cache`,
+        dataQuality: {
+          ...(storedBenchmark.dataQuality || {}),
+          warnings: [
+            ...(storedBenchmark.dataQuality?.warnings || []),
+            { ticker: benchmarkTicker.toUpperCase(), warning: benchmarkHistory?.error || "Benchmark prices unavailable" }
+          ],
+          unpricedTickers: [...new Set([...(storedBenchmark.dataQuality?.unpricedTickers || []), benchmarkTicker.toUpperCase()])].sort()
+        }
+      };
+    }
+
     return {
       benchmark: benchmarkTicker.toUpperCase(),
       asOf: new Date().toISOString(),
@@ -689,7 +912,7 @@ async function buildPortfolioBenchmark(benchmarkTicker = "SPY") {
 
   const latest = series.at(-1) || null;
 
-  return {
+  const benchmarkResult = {
     benchmark: benchmarkTicker.toUpperCase(),
     asOf: new Date().toISOString(),
     source: "yahoo-chart",
@@ -709,6 +932,12 @@ async function buildPortfolioBenchmark(benchmarkTicker = "SPY") {
       unpricedTickers: [...unpricedTickers].sort()
     }
   };
+
+  if (series.length > 0) {
+    await persistBenchmarkSeriesCache(benchmarkTicker, benchmarkResult);
+  }
+
+  return benchmarkResult;
 }
 
 function buildPositionPerformance(ticker, tickerActivities, quote) {
@@ -844,6 +1073,7 @@ async function buildPortfolioPerformance() {
         price: null,
         currency: "USD",
         marketTime: "",
+        source: "none",
         error: ""
       };
     })
@@ -877,7 +1107,7 @@ async function buildPortfolioPerformance() {
 
   return {
     asOf: new Date().toISOString(),
-    source: "yahoo-chart",
+    source: buildQuoteSourceLabel(Object.values(quotes)),
     summary,
     positions,
     dataQuality: {
@@ -892,6 +1122,17 @@ async function buildPortfolioPerformance() {
       untrackedTickers: activityData.dataQuality.untrackedTickers
     }
   };
+}
+
+function buildQuoteSourceLabel(quotes) {
+  const sources = new Set(quotes.map((quote) => quote?.source).filter(Boolean));
+  if (sources.has("stooq-latest")) {
+    return "yahoo-chart + stooq-latest fallback";
+  }
+  if (sources.has("stale-cache")) {
+    return "yahoo-chart + stale quote cache";
+  }
+  return "yahoo-chart";
 }
 
 async function readPortfolioActivities() {
