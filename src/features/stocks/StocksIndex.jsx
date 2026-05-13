@@ -2,6 +2,7 @@ import { lazy, Suspense, useMemo, useState } from "react";
 import { ArrowLeft, BriefcaseBusiness, GitGraph, Table } from "lucide-react";
 import IconButton from "../../components/IconButton.jsx";
 import StateMessage from "../../components/StateMessage.jsx";
+import { usePosts } from "../posts/hooks.js";
 import { useStocks } from "./hooks.js";
 
 const StockGraphView = lazy(() => import("./components/StockGraphView.jsx"));
@@ -11,6 +12,7 @@ const CONVICTION_OPTIONS = ["All", "strong", "holding", "watching", "re-evaluati
 
 export default function StocksIndex({ navigate }) {
   const { stocks, loading, error } = useStocks();
+  const { posts } = usePosts();
   const [view, setView] = useState("table");
   const [statusFilter, setStatusFilter] = useState("All");
   const [convictionFilter, setConvictionFilter] = useState("All");
@@ -306,7 +308,7 @@ export default function StocksIndex({ navigate }) {
             </div>
           }
         >
-          <StockGraphView navigate={navigate} stocks={filteredStocks} />
+          <StockGraphView navigate={navigate} posts={posts} stocks={filteredStocks} />
         </Suspense>
       )}
     </section>

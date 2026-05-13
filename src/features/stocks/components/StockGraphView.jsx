@@ -1,9 +1,16 @@
 import { useEffect, useRef } from "react";
 import cytoscape from "cytoscape";
 
-export default function StockGraphView({ stocks, navigate }) {
+export default function StockGraphView({ stocks, posts, navigate }) {
   const containerRef = useRef(null);
   const cyRef = useRef(null);
+
+  const visibleTickers = new Set(stocks.map((s) => s.ticker.toUpperCase()));
+
+  const relatedPosts = (posts || []).filter((post) => {
+    const postTickers = (post.tickers || []).map((t) => t.toUpperCase());
+    return postTickers.some((t) => visibleTickers.has(t));
+  });
 
   useEffect(() => {
     if (!stocks.length || !containerRef.current) return;
@@ -41,7 +48,6 @@ export default function StockGraphView({ stocks, navigate }) {
           }
         });
 
-        // Edge: note → parent stock
         const edgeId = `note--${noteId}`;
         if (!edgeSet.has(edgeId)) {
           edgeSet.add(edgeId);
@@ -52,6 +58,38 @@ export default function StockGraphView({ stocks, navigate }) {
               target: stock.ticker,
               weight: 1,
               edgeType: "parent"
+            }
+          });
+        }
+      });
+    });
+
+    // Post nodes
+    relatedPosts.forEach((post) => {
+      elements.push({
+        data: {
+          id: `post--${post.slug}`,
+          label: post.title || post.slug,
+          type: "post",
+          slug: post.slug,
+          tagCount: post.tags?.length || 0
+        }
+      });
+
+      // Edge: post → each stock it mentions
+      (post.tickers || []).forEach((ticker) => {
+        const upper = ticker.toUpperCase();
+        if (!visibleTickers.has(upper)) return;
+        const edgeId = `post--${post.slug}--${upper}`;
+        if (!edgeSet.has(edgeId)) {
+          edgeSet.add(edgeId);
+          elements.push({
+            data: {
+              id: edgeId,
+              source: `post--${post.slug}`,
+              target: ticker,
+              weight: 1,
+              edgeType: "post-stock"
             }
           });
         }
@@ -128,6 +166,26 @@ export default function StockGraphView({ stocks, navigate }) {
           }
         },
         {
+          selector: "node[type='post']",
+          style: {
+            "background-color": "#475569",
+            "width": 10,
+            "height": 10,
+            "label": "data(label)",
+            "color": "#475569",
+            "font-size": "10px",
+            "font-family": "system-ui, sans-serif",
+            "text-valign": "bottom",
+            "text-halign": "center",
+            "text-margin-y": 6,
+            "text-wrap": "wrap",
+            "text-max-width": "100px",
+            "text-events": "no",
+            "transition-property": "width, height, background-color",
+            "transition-duration": "0.15s"
+          }
+        },
+        {
           selector: "edge[edgeType='shared-label']",
           style: {
             "width": 1,
@@ -144,6 +202,16 @@ export default function StockGraphView({ stocks, navigate }) {
             "curve-style": "bezier",
             "opacity": 0.4,
             "line-style": "dashed"
+          }
+        },
+        {
+          selector: "edge[edgeType='post-stock']",
+          style: {
+            "width": 1,
+            "line-color": "#94a3b8",
+            "curve-style": "bezier",
+            "opacity": 0.55,
+            "line-style": "dotted"
           }
         },
         {
@@ -169,6 +237,17 @@ export default function StockGraphView({ stocks, navigate }) {
           }
         },
         {
+          selector: "node[type='post'].hover",
+          style: {
+            "background-color": "#334155",
+            "width": 14,
+            "height": 14,
+            "border-width": 2,
+            "border-color": "#94a3b8",
+            "z-index": 10
+          }
+        },
+        {
           selector: "node.connected",
           style: {
             "background-color": "#0f172a",
@@ -182,6 +261,14 @@ export default function StockGraphView({ stocks, navigate }) {
             "background-color": "#64748b",
             "width": 8,
             "height": 8
+          }
+        },
+        {
+          selector: "node[type='post'].connected",
+          style: {
+            "background-color": "#475569",
+            "width": 12,
+            "height": 12
           }
         },
         {
@@ -237,6 +324,8 @@ export default function StockGraphView({ stocks, navigate }) {
         const ticker = node.data("parentTicker");
         const slug = node.data("slug");
         navigate(`/stocks/${ticker}/${slug}`);
+      } else if (type === "post") {
+        navigate(`/posts/${node.data("slug")}`);
       }
     });
 
@@ -260,9 +349,10 @@ export default function StockGraphView({ stocks, navigate }) {
     return () => {
       cy.destroy();
     };
-  }, [stocks, navigate]);
+  }, [stocks, relatedPosts, navigate, visibleTickers]);
 
-  const totalNodes = stocks.reduce((sum, stock) => sum + 1 + (stock.timeline?.length || 0), 0);
+  const noteCount = stocks.reduce((sum, stock) => sum + (stock.timeline?.length || 0), 0);
+  const totalNodes = stocks.length + noteCount + relatedPosts.length;
 
   if (!stocks.length) {
     return (
@@ -276,13 +366,13 @@ export default function StockGraphView({ stocks, navigate }) {
     <div className="mt-6 border border-slate-200 border-t-2 border-t-black bg-white">
       <div className="flex items-center justify-between border-b border-slate-200 px-4 py-2.5">
         <span className="text-[13px] font-medium uppercase tracking-wider text-slate-500">
-          File Graph
+          Cross-Reference Graph
         </span>
         <span className="text-[11px] text-slate-400">
-          {stocks.length} stocks + {totalNodes - stocks.length} notes &middot; click to open &middot; hover to see relationships
+          {stocks.length} stocks + {noteCount} notes + {relatedPosts.length} posts &middot; click to open &middot; hover to see relationships
         </span>
       </div>
-      <div ref={containerRef} style={{ width: "100%", height: "480px" }} />
+      <div ref={containerRef} style={{ width: "100%", height: "520px" }} />
     </div>
   );
 }
