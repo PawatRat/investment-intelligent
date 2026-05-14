@@ -15,7 +15,7 @@ export default function PostIndex({ navigate }) {
   const [view, setView] = useState("grid");
   const [query, setQuery] = useState("");
   const [activeTag, setActiveTag] = useState("All");
-  const heroTitle = "Notes Maxxing";
+  const heroTitle = "Investment Intelligent";
 
   const tags = useMemo(() => {
     const tagSet = new Set(posts.flatMap((post) => post.tags));

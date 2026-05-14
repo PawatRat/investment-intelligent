@@ -1,8 +1,8 @@
-# Knowledge Core Project Design Review
+# Investment Intelligent Project Design Review
 
 ## Design Read
 
-Knowledge Core has a clear product shape: it is not a generic blog theme, it is a backend-owned Markdown publishing surface. The strongest design decision is the strict rectangular visual language. The no-radius rule, slate palette, serif prose, and sparse borders make the app feel like a quiet editorial tool rather than a marketing site.
+Investment Intelligent has a clear product shape: it is not a generic blog theme, it is a backend-owned Markdown publishing surface. The strongest design decision is the strict rectangular visual language. The no-radius rule, slate palette, serif prose, and sparse borders make the app feel like a quiet editorial tool rather than a marketing site.
 
 The main experience works as a publishing archive:
 
@@ -15,7 +15,7 @@ The main experience works as a publishing archive:
 
 Open this SVG design board:
 
-![Knowledge Core project design visual](/Users/pawatrattanasom/Desktop/projs/knowledge-core/public/uploads/project-design-visual.svg)
+![Investment Intelligent project design visual](/Users/pawatrattanasom/Desktop/projs/knowledge-core/public/uploads/project-design-visual.svg)
 
 The board summarizes the visual language, index layout, reading surface, publishing flow, and design review notes.
 

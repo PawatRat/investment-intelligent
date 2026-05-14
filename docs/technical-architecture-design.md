@@ -1,8 +1,8 @@
-# Knowledge Core Technical Architecture Design
+# Investment Intelligent Technical Architecture Design
 
 ## Overview
 
-Knowledge Core is a small, backend-first Markdown publishing system. The software design is intentionally simple:
+Investment Intelligent is a small, backend-first Markdown publishing system. The software design is intentionally simple:
 
 - React renders the reading and browsing experience.
 - Express owns publishing and upload writes.
@@ -12,7 +12,7 @@ Knowledge Core is a small, backend-first Markdown publishing system. The softwar
 
 Architecture visual:
 
-![Knowledge Core technical architecture design](/Users/pawatrattanasom/Desktop/projs/knowledge-core/public/uploads/technical-architecture-design.svg)
+![Investment Intelligent technical architecture design](/Users/pawatrattanasom/Desktop/projs/knowledge-core/public/uploads/technical-architecture-design.svg)
 
 ## Runtime Topology
 

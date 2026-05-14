@@ -1,4 +1,4 @@
-# Knowledge Core
+# Investment Intelligent
 
 A backend-first Markdown publishing system with a stock knowledge base.
 

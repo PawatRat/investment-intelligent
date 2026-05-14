@@ -2,7 +2,7 @@
 
 ## Overview
 
-Knowledge Core is a React frontend + Express backend application. Posts are stored as Markdown files on disk — there is no database.
+Investment Intelligent is a React frontend + Express backend application. Posts are stored as Markdown files on disk — there is no database.
 
 **Architecture:**
 - **Frontend:** React 18 + Vite (builds to static files in `dist/`)
@@ -67,10 +67,10 @@ sudo apt install -y nginx
 
 ```bash
 # On your local machine, copy files to server
-rsync -avz --exclude=node_modules --exclude=.git --exclude=dist ./ user@your-server:/var/www/knowledge-core/
+rsync -avz --exclude=node_modules --exclude=.git --exclude=dist ./ user@your-server:/var/www/investment-intelligent/
 
 # SSH into server
-cd /var/www/knowledge-core
+cd /var/www/investment-intelligent
 
 # Install dependencies
 npm install --production
@@ -82,14 +82,14 @@ npm run build
 mkdir -p content/posts public/uploads
 
 # Start with PM2
-pm2 start server/index.js --name knowledge-core
+pm2 start server/index.js --name investment-intelligent
 pm2 save
 pm2 startup systemd
 ```
 
 ### 3.3 Nginx Configuration
 
-Create `/etc/nginx/sites-available/knowledge-core`:
+Create `/etc/nginx/sites-available/investment-intelligent`:
 
 ```nginx
 server {
@@ -98,7 +98,7 @@ server {
 
     # Frontend static files
     location / {
-        root /var/www/knowledge-core/dist;
+        root /var/www/investment-intelligent/dist;
         try_files $uri $uri/ /index.html;
     }
 
@@ -125,7 +125,7 @@ server {
 Enable the site:
 
 ```bash
-sudo ln -s /etc/nginx/sites-available/knowledge-core /etc/nginx/sites-enabled/
+sudo ln -s /etc/nginx/sites-available/investment-intelligent /etc/nginx/sites-enabled/
 sudo nginx -t
 sudo systemctl restart nginx
 ```
@@ -154,7 +154,7 @@ These platforms work well for Node.js apps.
 ```yaml
 services:
   - type: web
-    name: knowledge-core
+    name: investment-intelligent
     runtime: node
     buildCommand: npm install && npm run build
     startCommand: node server/index.js
@@ -206,7 +206,7 @@ If you prefer to host the frontend on a CDN:
 # Daily backup of posts to a private Git repo
 crontab -e
 # Add:
-0 3 * * * cd /var/www/knowledge-core/content/posts && git add . && git commit -m "auto: $(date +\%Y-\%m-\%d)" && git push origin main
+0 3 * * * cd /var/www/investment-intelligent/content/posts && git add . && git commit -m "auto: $(date +\%Y-\%m-\%d)" && git push origin main
 ```
 
 ---
@@ -219,13 +219,13 @@ On a VPS, always use a process manager so the app restarts if it crashes.
 
 ```bash
 # Start
-pm2 start server/index.js --name knowledge-core
+pm2 start server/index.js --name investment-intelligent
 
 # Restart
-pm2 restart knowledge-core
+pm2 restart investment-intelligent
 
 # View logs
-pm2 logs knowledge-core
+pm2 logs investment-intelligent
 
 # Auto-start on boot
 pm2 startup
@@ -234,17 +234,17 @@ pm2 save
 
 **Systemd service** (alternative, no PM2 needed):
 
-Create `/etc/systemd/system/knowledge-core.service`:
+Create `/etc/systemd/system/investment-intelligent.service`:
 
 ```ini
 [Unit]
-Description=Knowledge Core
+Description=Investment Intelligent
 After=network.target
 
 [Service]
 Type=simple
 User=www-data
-WorkingDirectory=/var/www/knowledge-core
+WorkingDirectory=/var/www/investment-intelligent
 ExecStart=/usr/bin/node server/index.js
 Restart=on-failure
 Environment=NODE_ENV=production
@@ -256,9 +256,9 @@ WantedBy=multi-user.target
 
 ```bash
 sudo systemctl daemon-reload
-sudo systemctl enable knowledge-core
-sudo systemctl start knowledge-core
-sudo systemctl status knowledge-core
+sudo systemctl enable investment-intelligent
+sudo systemctl start investment-intelligent
+sudo systemctl status investment-intelligent
 ```
 
 ---
@@ -268,7 +268,7 @@ sudo systemctl status knowledge-core
 - [ ] **Firewall:** Only open ports 22 (SSH), 80 (HTTP), and 443 (HTTPS)
 - [ ] **Fail2ban:** Install to prevent brute-force SSH attacks
 - [ ] **SSL:** Enforce HTTPS with Let's Encrypt
-- [ ] **File permissions:** `chmod 755 /var/www/knowledge-core`, never run as root
+- [ ] **File permissions:** `chmod 755 /var/www/investment-intelligent`, never run as root
 - [ ] **Backups:** Automate daily backups of `content/posts/` and `public/uploads/`
 - [ ] **Updates:** Schedule `apt upgrade` for security patches
 
@@ -305,7 +305,7 @@ jobs:
           username: ${{ secrets.USERNAME }}
           key: ${{ secrets.SSH_KEY }}
           source: "dist/,server/,content/,package.json,package-lock.json"
-          target: "/var/www/knowledge-core"
+          target: "/var/www/investment-intelligent"
           strip_components: 0
 
       - name: Restart service
@@ -315,9 +315,9 @@ jobs:
           username: ${{ secrets.USERNAME }}
           key: ${{ secrets.SSH_KEY }}
           script: |
-            cd /var/www/knowledge-core
+            cd /var/www/investment-intelligent
             npm install --production
-            pm2 restart knowledge-core
+            pm2 restart investment-intelligent
 ```
 
 **Required GitHub Secrets:**
@@ -333,7 +333,7 @@ If a deployment breaks:
 
 ```bash
 # On the server
-cd /var/www/knowledge-core
+cd /var/www/investment-intelligent
 
 # Revert to previous code (if using Git)
 git reset --hard HEAD~1
@@ -342,10 +342,10 @@ git reset --hard HEAD~1
 npm run build
 
 # Restart
-pm2 restart knowledge-core
+pm2 restart investment-intelligent
 
 # Or restore content from backup
-tar -xzf /backups/knowledge-core-$(date +%Y%m%d).tar.gz -C /
+tar -xzf /backups/investment-intelligent-$(date +%Y%m%d).tar.gz -C /
 ```
 
 ---
@@ -358,7 +358,7 @@ tar -xzf /backups/knowledge-core-$(date +%Y%m%d).tar.gz -C /
 | Start (prod) | `NODE_ENV=production node server/index.js` |
 | Start (dev) | `npm run dev` |
 | Check status | `pm2 status` |
-| View logs | `pm2 logs knowledge-core` |
+| View logs | `pm2 logs investment-intelligent` |
 | Nginx test | `sudo nginx -t` |
 | Nginx restart | `sudo systemctl restart nginx` |
 | SSL renew | `sudo certbot renew --dry-run` |

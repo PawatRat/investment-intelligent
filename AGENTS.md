@@ -1,8 +1,8 @@
-# AGENTS.md — Knowledge Core
+# AGENTS.md — Investment Intelligent
 
 ## Project Identity
 
-Knowledge Core is a **backend-first Markdown publishing system** with a stock knowledge base. Posts live as `.md` files with front matter. The frontend reads from the API and renders content as a blog with multiple view modes.
+Investment Intelligent is a **backend-first Markdown publishing system** with a stock knowledge base. Posts live as `.md` files with front matter. The frontend reads from the API and renders content as a blog with multiple view modes.
 
 - **Stack:** React 18 + Vite (frontend) / Express (backend) / Tailwind CSS
 - **Content:** `.md` files in `content/posts/` — **no database**

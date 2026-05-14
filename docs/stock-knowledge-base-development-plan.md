@@ -2,7 +2,7 @@
 
 ## Goal
 
-Add a stock-focused knowledge base to Knowledge Core.
+Add a stock-focused knowledge base to Investment Intelligent.
 
 Each stock should have its own permanent thesis page and a dated timeline of stock-specific notes. The feature should remain Markdown-first and file-backed, consistent with the current project architecture.
 

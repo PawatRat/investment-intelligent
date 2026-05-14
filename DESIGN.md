@@ -1,4 +1,4 @@
-# Design System — Knowledge Core
+# Design System — Investment Intelligent
 
 ## Core Rule: Absolutely No Rounded Corners
 

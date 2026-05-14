@@ -1735,5 +1735,5 @@ app.use((error, _request, response, _next) => {
 });
 
 app.listen(port, "127.0.0.1", () => {
-  console.log(`Knowledge Core backend listening on http://127.0.0.1:${port}`);
+  console.log(`Investment Intelligent backend listening on http://127.0.0.1:${port}`);
 });
