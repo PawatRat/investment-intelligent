@@ -15,7 +15,13 @@ export default function PostIndex({ navigate }) {
   const [view, setView] = useState("grid");
   const [query, setQuery] = useState("");
   const [activeTag, setActiveTag] = useState("All");
-  const heroTitle = "Investment Intelligent";
+  const heroPhrases = [
+    "Investment Maxxing",
+    "Stock Maxxing",
+    "ETFs Maxxing",
+    "Be Stonks Everyday",
+    "Portfolio Go Brrr"
+  ];
 
   const tags = useMemo(() => {
     const tagSet = new Set(posts.flatMap((post) => post.tags));
@@ -37,7 +43,7 @@ export default function PostIndex({ navigate }) {
         <div>
           <TypewriterTitle
             className="min-h-[9.5rem] max-w-3xl font-serif text-5xl font-normal tracking-tight leading-[0.96] md:min-h-[8.75rem] md:text-7xl"
-            text={heroTitle}
+            phrases={heroPhrases}
           />
           <p className="mt-6 max-w-2xl font-serif text-lg leading-8 text-neutral-700">
             A backend-first Markdown publishing system for project descriptions, diagrams,

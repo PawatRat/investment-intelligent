@@ -2,19 +2,22 @@ import { useEffect, useRef, useState } from "react";
 
 const TYPE_SPEED = 120;
 const DELETE_SPEED = 60;
-const PAUSE_MS = 3000;
+const PAUSE_MS = 2500;
 
-export default function TypewriterTitle({ className = "", text }) {
+export default function TypewriterTitle({ className = "", phrases }) {
   const [displayedText, setDisplayedText] = useState("");
   const [isComplete, setIsComplete] = useState(false);
+  const [phraseIndex, setPhraseIndex] = useState(0);
   const timerRef = useRef(null);
+
+  const currentPhrase = phrases[phraseIndex] || "";
 
   useEffect(() => {
     const prefersReducedMotion = window.matchMedia(
       "(prefers-reduced-motion: reduce)"
     ).matches;
     if (prefersReducedMotion) {
-      setDisplayedText(text);
+      setDisplayedText(currentPhrase);
       setIsComplete(true);
       return;
     }
@@ -26,8 +29,8 @@ export default function TypewriterTitle({ className = "", text }) {
       timerRef.current = window.setTimeout(() => {
         if (phase === "typing") {
           index += 1;
-          setDisplayedText(text.slice(0, index));
-          if (index >= text.length) {
+          setDisplayedText(currentPhrase.slice(0, index));
+          if (index >= currentPhrase.length) {
             phase = "waiting";
             setIsComplete(true);
             schedule(PAUSE_MS);
@@ -40,8 +43,10 @@ export default function TypewriterTitle({ className = "", text }) {
           schedule(DELETE_SPEED);
         } else if (phase === "deleting") {
           index -= 1;
-          setDisplayedText(text.slice(0, index));
+          setDisplayedText(currentPhrase.slice(0, index));
           if (index <= 0) {
+            // Move to next phrase
+            setPhraseIndex((prev) => (prev + 1) % phrases.length);
             phase = "typing";
             schedule(TYPE_SPEED);
           } else {
@@ -56,10 +61,10 @@ export default function TypewriterTitle({ className = "", text }) {
     schedule(TYPE_SPEED);
 
     return () => window.clearTimeout(timerRef.current);
-  }, [text]);
+  }, [currentPhrase, phrases.length]);
 
   return (
-    <h1 aria-label={text} className={className}>
+    <h1 aria-label={currentPhrase} className={className}>
       <span aria-hidden="true">{displayedText}</span>
       <span
         aria-hidden="true"
