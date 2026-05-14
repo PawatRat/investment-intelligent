@@ -1,5 +1,5 @@
 export const siteConfig = {
-  name: "Knowledge Core",
-  initials: "KC",
-  tagline: "Markdown notes through a backend"
+  name: "Investment Intelligent",
+  initials: "II",
+  tagline: "Research-driven portfolio intelligence"
 };
