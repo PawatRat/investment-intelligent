@@ -42,7 +42,7 @@ export default function PostIndex({ navigate }) {
       <div className="grid gap-8 border-b border-neutral-200 pb-10 lg:grid-cols-[1fr_360px]">
         <div>
           <TypewriterTitle
-            className="min-h-[9.5rem] max-w-3xl font-serif text-5xl font-normal tracking-tight leading-[0.96] md:min-h-[8.75rem] md:text-7xl"
+            className="max-w-3xl font-serif text-5xl font-normal tracking-tight leading-[0.96] md:text-7xl"
             phrases={heroPhrases}
           />
           <p className="mt-6 max-w-2xl font-serif text-lg leading-8 text-neutral-700">
