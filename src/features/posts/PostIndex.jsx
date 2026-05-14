@@ -38,14 +38,14 @@ export default function PostIndex({ navigate }) {
   }, [activeTag, posts, query]);
 
   return (
-    <section className="relative z-10 mx-auto max-w-6xl px-5 py-12">
-      <div className="grid gap-8 border-b border-neutral-200 pb-10 lg:grid-cols-[1fr_360px]">
+    <section className="relative z-10 mx-auto max-w-6xl px-5 py-8">
+      <div className="grid gap-6 border-b border-neutral-200 pb-8 lg:grid-cols-[1fr_360px]">
         <div>
           <TypewriterTitle
-            className="max-w-3xl font-serif text-5xl font-normal tracking-tight leading-[0.96] md:text-7xl"
+            className="max-w-3xl font-serif text-4xl font-normal tracking-tight leading-[1.1] md:text-5xl"
             phrases={heroPhrases}
           />
-          <p className="mt-6 max-w-2xl font-serif text-lg leading-8 text-neutral-700">
+          <p className="mt-3 max-w-2xl font-serif text-base leading-7 text-neutral-700">
             A backend-first Markdown publishing system for project descriptions, diagrams,
             graph notes, images, tags, filters, timelines, and direct post links.
           </p>
@@ -56,7 +56,7 @@ export default function PostIndex({ navigate }) {
             The browser never writes content in this version; it reads published entries from
             the API and renders them as multiple blog views.
           </p>
-          <div className="mt-6 border border-neutral-200 bg-white p-4">
+          <div className="mt-4 border border-neutral-200 bg-white p-4">
             <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-neutral-500">
               <GitGraph className="h-3.5 w-3.5" />
               Knowledge Graph
@@ -74,7 +74,7 @@ export default function PostIndex({ navigate }) {
             </button>
           </div>
 
-          <div className="mt-6 border border-neutral-200 bg-white p-4">
+          <div className="mt-4 border border-neutral-200 bg-white p-4">
             <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-neutral-500">
               <Terminal className="h-3.5 w-3.5" />
               Prompt Commands
@@ -101,7 +101,7 @@ export default function PostIndex({ navigate }) {
         </div>
       </div>
 
-      <div className="mt-8 grid gap-5 lg:grid-cols-[1fr_auto] lg:items-end">
+      <div className="mt-6 grid gap-5 lg:grid-cols-[1fr_auto] lg:items-end">
         <label className="block">
           <span className="mb-2 block text-[13px] font-medium text-neutral-500">
             Filter
