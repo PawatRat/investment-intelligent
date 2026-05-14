@@ -1,5 +1,5 @@
 import { lazy, Suspense, useMemo, useState } from "react";
-import { GitGraph, Grid2X2, ListTree, Search } from "lucide-react";
+import { GitGraph, Grid2X2, ListTree, Search, Terminal } from "lucide-react";
 import IconButton from "../../components/IconButton.jsx";
 import StateMessage from "../../components/StateMessage.jsx";
 import TypewriterTitle from "../../components/TypewriterTitle.jsx";
@@ -67,6 +67,31 @@ export default function PostIndex({ navigate }) {
               Open graph view
             </button>
           </div>
+
+          <div className="mt-6 border border-neutral-200 bg-white p-4">
+            <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-neutral-500">
+              <Terminal className="h-3.5 w-3.5" />
+              Prompt Commands
+            </div>
+            <p className="mt-2 text-sm leading-6 text-neutral-600">
+              Type any of these to trigger an agent to research and publish.
+            </p>
+            <div className="mt-3 space-y-2">
+              <CommandExample text="Run stock-report.md for AAPL" />
+              <CommandExample text="Update MSFT thesis" />
+              <CommandExample text="Weekly check on META" />
+              <CommandExample text="Run growth-scanner.md for semiconductors" />
+              <CommandExample text="Run portfolio-check.md" />
+            </div>
+            <button
+              className="mt-3 inline-flex w-full items-center justify-center gap-2 border border-neutral-200 px-3 py-2 text-[13px] font-semibold text-neutral-900 transition-colors hover:bg-neutral-900 hover:text-white"
+              onClick={() => navigate("/prompts")}
+              type="button"
+            >
+              <Terminal className="h-4 w-4" />
+              Browse all prompts
+            </button>
+          </div>
         </div>
       </div>
 
@@ -132,5 +157,14 @@ export default function PostIndex({ navigate }) {
         </Suspense>
       )}
     </section>
+  );
+}
+
+function CommandExample({ text }) {
+  return (
+    <div className="flex items-start gap-2">
+      <span className="mt-1.5 h-1.5 w-1.5 shrink-0 bg-neutral-400" />
+      <span className="font-mono text-[12px] leading-5 text-neutral-700">{text}</span>
+    </div>
   );
 }
