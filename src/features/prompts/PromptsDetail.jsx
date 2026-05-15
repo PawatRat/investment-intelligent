@@ -5,6 +5,7 @@ import ArticleNav from "../../components/ArticleNav.jsx";
 import StateMessage from "../../components/StateMessage.jsx";
 import { addHeadingIds, extractMarkdownHeadings } from "../../lib/markdownHeadings.js";
 import { fetchPrompt } from "./api.js";
+import FileInteractionDiagram from "./components/FileInteractionDiagram.jsx";
 
 const ChartBlock = lazy(() => import("../posts/components/charts/ChartBlock.jsx"));
 
@@ -43,6 +44,7 @@ export default function PromptsDetail({ filename, navigate }) {
     return result.length ? result : [{ type: "markdown", content: prompt.markdown }];
   }, [prompt]);
   const workflow = useMemo(() => parseAgentWorkflow(prompt?.markdown || ""), [prompt]);
+  const fileInteractions = useMemo(() => parseFileInteractions(prompt?.markdown || ""), [prompt]);
   const headings = useMemo(() => extractMarkdownHeadings(prompt?.markdown || "", filename), [filename, prompt]);
   const renderedSections = useMemo(() => {
     const counts = new Map();
@@ -99,6 +101,8 @@ export default function PromptsDetail({ filename, navigate }) {
               File: <span className="font-mono text-sm text-neutral-900">{filename}</span>
             </p>
           </header>
+
+          <FileInteractionDiagram interactions={fileInteractions} />
 
           <div className="mt-12">
             <div className="prose-core">
@@ -252,6 +256,47 @@ function workflowIcon(step) {
   if (normalized.includes("reviewer")) return ShieldCheck;
   if (normalized.includes("publisher")) return Upload;
   return FileText;
+}
+
+function parseFileInteractions(markdown) {
+  const match = markdown.match(/## File Interactions\s*([\s\S]*?)(?=\n## |\n# |$)/);
+  if (!match) return null;
+
+  const content = match[1];
+  const reads = [];
+  const writes = [];
+  const external = [];
+
+  const readSection = content.match(/\*\*Reads:\*\*\s*([\s\S]*?)(?=\*\*Writes:|\*\*External:|$)/);
+  const writeSection = content.match(/\*\*Writes:\*\*\s*([\s\S]*?)(?=\*\*External:|$)/);
+  const externalSection = content.match(/\*\*External:\*\*\s*([\s\S]*)/);
+
+  if (readSection) {
+    const lines = readSection[1].split("\n").filter((l) => l.trim().startsWith("- "));
+    for (const line of lines) {
+      const text = line.trim().replace(/^- /, "");
+      const parts = text.split(" — ");
+      reads.push({ path: parts[0]?.trim() || text, description: parts[1]?.trim() || "" });
+    }
+  }
+
+  if (writeSection) {
+    const lines = writeSection[1].split("\n").filter((l) => l.trim().startsWith("- "));
+    for (const line of lines) {
+      const text = line.trim().replace(/^- /, "");
+      const parts = text.split(" — ");
+      writes.push({ path: parts[0]?.trim() || text, description: parts[1]?.trim() || "" });
+    }
+  }
+
+  if (externalSection) {
+    const lines = externalSection[1].split("\n").filter((l) => l.trim().startsWith("- "));
+    for (const line of lines) {
+      external.push(line.trim().replace(/^- /, ""));
+    }
+  }
+
+  return { reads, writes, external };
 }
 
 function BackButton({ navigate }) {
