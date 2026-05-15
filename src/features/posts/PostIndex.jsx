@@ -39,7 +39,7 @@ export default function PostIndex({ navigate }) {
     });
   }, [activeTag, activeType, items, query]);
 
-  const postItems = useMemo(() => filteredItems.filter((i) => i.type === "post"), [filteredItems]);
+  // All filtered items go to all views (not just posts)
 
   function handleItemClick(item) {
     if (item.type === "post") {
@@ -228,10 +228,10 @@ export default function PostIndex({ navigate }) {
       )}
 
       {!loading && !error && view === "grid" && (
-        <GridView posts={postItems} navigate={navigate} />
+        <GridView items={filteredItems} navigate={navigate} />
       )}
       {!loading && !error && view === "timeline" && (
-        <TimelineView posts={postItems} navigate={navigate} />
+        <TimelineView items={filteredItems} navigate={navigate} />
       )}
       {!loading && !error && view === "graph" && (
         <Suspense
@@ -241,7 +241,7 @@ export default function PostIndex({ navigate }) {
             </div>
           }
         >
-          <GraphView posts={postItems} navigate={navigate} />
+          <GraphView items={filteredItems} navigate={navigate} />
         </Suspense>
       )}
     </section>

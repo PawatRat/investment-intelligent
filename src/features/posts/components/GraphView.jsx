@@ -1,38 +1,40 @@
 import { useEffect, useRef } from "react";
 import cytoscape from "cytoscape";
 
-export default function GraphView({ posts, navigate }) {
+export default function GraphView({ items, navigate }) {
   const containerRef = useRef(null);
   const cyRef = useRef(null);
 
   useEffect(() => {
-    if (!posts.length || !containerRef.current) return;
+    if (!items.length || !containerRef.current) return;
 
-    const nodes = posts.map((post) => ({
+    const nodes = items.map((item) => ({
       data: {
-        id: post.slug,
-        label: post.title,
-        tagCount: post.tags?.length || 0
+        id: item.path,
+        label: item.title,
+        tagCount: item.tags?.length || 0,
+        type: item.type,
+        kind: item.kind
       }
     }));
 
     const edges = [];
     const edgeSet = new Set();
 
-    for (let i = 0; i < posts.length; i++) {
-      for (let j = i + 1; j < posts.length; j++) {
-        const a = posts[i];
-        const b = posts[j];
-        const shared = a.tags.filter((tag) => b.tags.includes(tag));
+    for (let i = 0; i < items.length; i++) {
+      for (let j = i + 1; j < items.length; j++) {
+        const a = items[i];
+        const b = items[j];
+        const shared = (a.tags || []).filter((tag) => (b.tags || []).includes(tag));
         if (shared.length > 0) {
-          const edgeId = a.slug < b.slug ? `${a.slug}--${b.slug}` : `${b.slug}--${a.slug}`;
+          const edgeId = a.path < b.path ? `${a.path}--${b.path}` : `${b.path}--${a.path}`;
           if (!edgeSet.has(edgeId)) {
             edgeSet.add(edgeId);
             edges.push({
               data: {
                 id: edgeId,
-                source: a.slug,
-                target: b.slug,
+                source: a.path,
+                target: b.path,
                 weight: shared.length
               }
             });
@@ -138,7 +140,19 @@ export default function GraphView({ posts, navigate }) {
     });
 
     cy.on("tap", "node", (evt) => {
-      navigate(`/posts/${evt.target.id()}`);
+      const nodeId = evt.target.id();
+      const item = items.find((i) => i.path === nodeId);
+      if (!item) return;
+
+      if (item.type === "post") {
+        navigate(`/posts/${item.slug}`);
+      } else if (item.type === "stock") {
+        if (item.kind === "Thesis") {
+          navigate(`/stocks/${item.ticker}`);
+        } else {
+          navigate(`/stocks/${item.ticker}/${item.slug}`);
+        }
+      }
     });
 
     cy.on("mouseover", "node", (evt) => {
@@ -161,12 +175,12 @@ export default function GraphView({ posts, navigate }) {
     return () => {
       cy.destroy();
     };
-  }, [posts, navigate]);
+  }, [items, navigate]);
 
-  if (!posts.length) {
+  if (!items.length) {
     return (
       <div className="mt-8 flex h-[420px] items-center justify-center border border-neutral-200 bg-white">
-        <p className="text-sm text-neutral-500">No posts to graph.</p>
+        <p className="text-sm text-neutral-500">No content to graph.</p>
       </div>
     );
   }
@@ -178,7 +192,7 @@ export default function GraphView({ posts, navigate }) {
           Graph View
         </span>
         <span className="text-[11px] text-neutral-400">
-          {posts.length} posts &middot; drag to pan &middot; scroll to zoom &middot; click to open
+          {items.length} items &middot; drag to pan &middot; scroll to zoom &middot; click to open
         </span>
       </div>
       <div ref={containerRef} style={{ width: "100%", height: "440px" }} />

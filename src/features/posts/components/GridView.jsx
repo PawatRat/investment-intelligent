@@ -1,10 +1,10 @@
 import PostCard from "./PostCard.jsx";
 
-export default function GridView({ posts, navigate }) {
+export default function GridView({ items, navigate }) {
   return (
     <div className="mt-8 grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-      {posts.map((post) => (
-        <PostCard key={post.slug} post={post} navigate={navigate} />
+      {items.map((item) => (
+        <PostCard key={item.path} item={item} navigate={navigate} />
       ))}
     </div>
   );
