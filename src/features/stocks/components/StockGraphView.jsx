@@ -188,29 +188,29 @@ export default function StockGraphView({ stocks, posts, navigate, height = "520p
         {
           selector: "edge[edgeType='shared-label']",
           style: {
-            "width": 1,
-            "line-color": "#d4d4d4",
+            "width": 1.5,
+            "line-color": "#64748b",
             "curve-style": "bezier",
-            "opacity": 0.7
+            "opacity": 0.8
           }
         },
         {
           selector: "edge[edgeType='parent']",
           style: {
-            "width": 0.5,
-            "line-color": "#cbd5e1",
+            "width": 1,
+            "line-color": "#94a3b8",
             "curve-style": "bezier",
-            "opacity": 0.4,
+            "opacity": 0.5,
             "line-style": "dashed"
           }
         },
         {
           selector: "edge[edgeType='post-stock']",
           style: {
-            "width": 1,
-            "line-color": "#94a3b8",
+            "width": 1.5,
+            "line-color": "#64748b",
             "curve-style": "bezier",
-            "opacity": 0.55,
+            "opacity": 0.7,
             "line-style": "dotted"
           }
         },
@@ -274,8 +274,8 @@ export default function StockGraphView({ stocks, posts, navigate, height = "520p
         {
           selector: "edge.connected",
           style: {
-            "line-color": "#334155",
-            "width": 1.5,
+            "line-color": "#0f172a",
+            "width": 2.5,
             "opacity": 1
           }
         },

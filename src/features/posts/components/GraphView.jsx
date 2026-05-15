@@ -68,10 +68,10 @@ export default function GraphView({ posts, navigate }) {
         {
           selector: "edge",
           style: {
-            "width": 1,
-            "line-color": "#d4d4d4",
+            "width": 1.5,
+            "line-color": "#64748b",
             "curve-style": "bezier",
-            "opacity": 0.7
+            "opacity": 0.8
           }
         },
         {
@@ -96,8 +96,8 @@ export default function GraphView({ posts, navigate }) {
         {
           selector: "edge.connected",
           style: {
-            "line-color": "#334155",
-            "width": 1.5,
+            "line-color": "#0f172a",
+            "width": 2.5,
             "opacity": 1
           }
         },
