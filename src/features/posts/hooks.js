@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { fetchPosts, fetchPost } from "./api.js";
+import { fetchPosts, fetchPost, fetchContent } from "./api.js";
 
 export function usePosts() {
   const [posts, setPosts] = useState([]);
@@ -37,4 +37,22 @@ export function usePost(slug) {
   }, [slug]);
 
   return { post, loading, error };
+}
+
+export function useContent() {
+  const [items, setItems] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    let ignore = false;
+    const controller = new AbortController();
+    fetchContent(controller.signal)
+      .then((data) => { if (!ignore) setItems(data); })
+      .catch((err) => { if (!ignore && err.name !== "AbortError") setError(err.message); })
+      .finally(() => { if (!ignore) setLoading(false); });
+    return () => { ignore = true; controller.abort(); };
+  }, []);
+
+  return { items, loading, error };
 }

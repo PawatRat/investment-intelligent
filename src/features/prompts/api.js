@@ -5,7 +5,7 @@ export async function fetchPrompts() {
 }
 
 export async function fetchPrompt(filename) {
-  const response = await fetch(`/api/prompts/${filename}`);
+  const response = await fetch(`/api/prompts/${encodeURI(filename)}`);
   if (!response.ok) throw new Error("Prompt not found");
   return response.json();
 }

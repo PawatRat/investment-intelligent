@@ -6,15 +6,16 @@ import TypewriterTitle from "../../components/TypewriterTitle.jsx";
 import GridView from "./components/GridView.jsx";
 import TagFilter from "./components/TagFilter.jsx";
 import TimelineView from "./components/TimelineView.jsx";
-import { usePosts } from "./hooks.js";
+import { useContent } from "./hooks.js";
 
 const GraphView = lazy(() => import("./components/GraphView.jsx"));
 
 export default function PostIndex({ navigate }) {
-  const { posts, loading, error } = usePosts();
-  const [view, setView] = useState("grid");
+  const { items, loading, error } = useContent();
+  const [view, setView] = useState("list");
   const [query, setQuery] = useState("");
   const [activeTag, setActiveTag] = useState("All");
+  const [activeType, setActiveType] = useState("All");
   const heroPhrases = [
     "Investment Maxxing",
     "Stock Maxxing",
@@ -24,18 +25,33 @@ export default function PostIndex({ navigate }) {
   ];
 
   const tags = useMemo(() => {
-    const tagSet = new Set(posts.flatMap((post) => post.tags));
+    const tagSet = new Set(items.flatMap((item) => item.tags));
     return ["All", ...Array.from(tagSet).sort()];
-  }, [posts]);
+  }, [items]);
 
-  const filteredPosts = useMemo(() => {
+  const filteredItems = useMemo(() => {
     const normalizedQuery = query.trim().toLowerCase();
-    return posts.filter((post) => {
-      const matchesTag = activeTag === "All" || post.tags.includes(activeTag);
-      const searchableText = `${post.title} ${post.description} ${post.tags.join(" ")}`.toLowerCase();
-      return matchesTag && (!normalizedQuery || searchableText.includes(normalizedQuery));
+    return items.filter((item) => {
+      const matchesTag = activeTag === "All" || item.tags.includes(activeTag);
+      const matchesType = activeType === "All" || item.type === activeType;
+      const searchableText = `${item.title} ${item.description} ${item.tags.join(" ")} ${item.path} ${item.kind}`.toLowerCase();
+      return matchesTag && matchesType && (!normalizedQuery || searchableText.includes(normalizedQuery));
     });
-  }, [activeTag, posts, query]);
+  }, [activeTag, activeType, items, query]);
+
+  const postItems = useMemo(() => filteredItems.filter((i) => i.type === "post"), [filteredItems]);
+
+  function handleItemClick(item) {
+    if (item.type === "post") {
+      navigate(`/posts/${item.slug}`);
+    } else if (item.type === "stock") {
+      if (item.kind === "Thesis") {
+        navigate(`/stocks/${item.ticker}`);
+      } else {
+        navigate(`/stocks/${item.ticker}/${item.slug}`);
+      }
+    }
+  }
 
   return (
     <section className="relative z-10 mx-auto max-w-6xl px-5 py-8">
@@ -105,13 +121,16 @@ export default function PostIndex({ navigate }) {
             <input
               className="w-full bg-transparent px-3 py-3 text-sm outline-none"
               onChange={(event) => setQuery(event.target.value)}
-              placeholder="Search title, description, or tag"
+              placeholder="Search title, path, tag, or type"
               value={query}
             />
           </span>
         </label>
 
         <div className="flex bg-neutral-100 p-1">
+          <IconButton active={view === "list"} label="List view" onClick={() => setView("list")}>
+            <ListTree className="h-4 w-4" />
+          </IconButton>
           <IconButton active={view === "grid"} label="Grid view" onClick={() => setView("grid")}>
             <Grid2X2 className="h-4 w-4" />
           </IconButton>
@@ -132,18 +151,87 @@ export default function PostIndex({ navigate }) {
         </div>
       </div>
 
+      <div className="mt-4 flex flex-wrap items-center gap-2">
+        <span className="text-[13px] font-medium text-neutral-500">Type</span>
+        {["All", "post", "stock"].map((type) => (
+          <button
+            key={type}
+            className={`px-3 py-1.5 text-[13px] font-medium transition-colors ${
+              activeType === type ? "bg-neutral-900 text-white" : "bg-neutral-100 text-neutral-600 hover:bg-neutral-200"
+            }`}
+            onClick={() => setActiveType(type)}
+            type="button"
+          >
+            {type === "All" ? "All" : type === "post" ? "Posts" : "Stocks"}
+          </button>
+        ))}
+      </div>
+
       <TagFilter activeTag={activeTag} onChange={setActiveTag} tags={tags} />
 
-      {loading && <StateMessage message="Loading posts..." />}
+      {loading && <StateMessage message="Loading content..." />}
       {error && <StateMessage message={error} />}
-      {!loading && !error && filteredPosts.length === 0 && (
-        <StateMessage message="No posts match this filter." />
+      {!loading && !error && filteredItems.length === 0 && (
+        <StateMessage message="No content matches this filter." />
       )}
+
+      {!loading && !error && view === "list" && (
+        <div className="mt-6 overflow-x-auto border border-neutral-200 bg-white">
+          <table className="w-full border-collapse text-left">
+            <thead className="border-b-2 border-neutral-200">
+              <tr>
+                <th className="px-4 py-3 text-[11px] font-semibold uppercase tracking-[0.12em] text-neutral-500">Title</th>
+                <th className="px-4 py-3 text-[11px] font-semibold uppercase tracking-[0.12em] text-neutral-500">Path</th>
+                <th className="px-4 py-3 text-[11px] font-semibold uppercase tracking-[0.12em] text-neutral-500">Type</th>
+                <th className="px-4 py-3 text-[11px] font-semibold uppercase tracking-[0.12em] text-neutral-500">Date</th>
+                <th className="px-4 py-3 text-[11px] font-semibold uppercase tracking-[0.12em] text-neutral-500">Tags</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filteredItems.map((item) => (
+                <tr
+                  key={item.path}
+                  className="border-b border-neutral-100 transition-colors hover:bg-neutral-50/50 cursor-pointer"
+                  onClick={() => handleItemClick(item)}
+                >
+                  <td className="px-4 py-3">
+                    <span className="text-sm font-medium text-neutral-900">{item.title}</span>
+                    {item.description && (
+                      <p className="mt-0.5 text-xs text-neutral-500 line-clamp-1">{item.description}</p>
+                    )}
+                  </td>
+                  <td className="px-4 py-3 font-mono text-xs text-neutral-500">{item.path}</td>
+                  <td className="px-4 py-3">
+                    <span className={`inline-block px-2 py-0.5 text-[10px] font-medium uppercase tracking-wider ${
+                      item.type === "post"
+                        ? "bg-neutral-900 text-white"
+                        : item.kind === "Thesis"
+                        ? "bg-slate-700 text-white"
+                        : "bg-slate-200 text-slate-700"
+                    }`}>
+                      {item.kind}
+                    </span>
+                  </td>
+                  <td className="whitespace-nowrap px-4 py-3 text-sm text-neutral-500">{item.date || "-"}</td>
+                  <td className="px-4 py-3">
+                    <div className="flex flex-wrap gap-1">
+                      {item.tags.slice(0, 3).map((tag) => (
+                        <span key={tag} className="inline-block bg-neutral-50 px-1.5 py-0.5 text-[10px] font-medium tracking-wider text-neutral-500">{tag}</span>
+                      ))}
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
       {!loading && !error && view === "grid" && (
-        <GridView posts={filteredPosts} navigate={navigate} />
+        <GridView posts={postItems} navigate={navigate} />
       )}
       {!loading && !error && view === "timeline" && (
-        <TimelineView posts={filteredPosts} navigate={navigate} />
+        <TimelineView posts={postItems} navigate={navigate} />
       )}
       {!loading && !error && view === "graph" && (
         <Suspense
@@ -153,7 +241,7 @@ export default function PostIndex({ navigate }) {
             </div>
           }
         >
-          <GraphView posts={filteredPosts} navigate={navigate} />
+          <GraphView posts={postItems} navigate={navigate} />
         </Suspense>
       )}
     </section>

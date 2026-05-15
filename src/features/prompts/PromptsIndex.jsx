@@ -1,5 +1,5 @@
-import { useEffect, useState } from "react";
-import { ArrowLeft, FileText } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { ArrowLeft, Bot, FileText, GitBranch } from "lucide-react";
 import StateMessage from "../../components/StateMessage.jsx";
 import { fetchPrompts } from "./api.js";
 
@@ -7,6 +7,24 @@ export default function PromptsIndex({ navigate }) {
   const [prompts, setPrompts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [view, setView] = useState("all");
+  const agentPrompts = prompts.filter((prompt) => prompt.group === "agents");
+  const commandPrompts = prompts.filter((prompt) => prompt.group !== "agents");
+  const groupedPrompts = useMemo(() => {
+    const visiblePrompts = prompts.filter((prompt) => {
+      if (view === "agents") return prompt.group === "agents";
+      if (view === "commands") return prompt.group !== "agents";
+      return true;
+    });
+
+    return visiblePrompts.reduce((groups, prompt) => {
+      const group = prompt.group || "general";
+      return {
+        ...groups,
+        [group]: [...(groups[group] || []), prompt]
+      };
+    }, {});
+  }, [prompts, view]);
 
   useEffect(() => {
     fetchPrompts()
@@ -55,35 +73,115 @@ export default function PromptsIndex({ navigate }) {
         <p className="mt-5 font-serif text-lg leading-8 text-neutral-700">
           Reusable agent command templates. Each prompt is a recipe — an agent reads it, gathers real data, and publishes the result as a post.
         </p>
+
+        <div className="mt-8 grid gap-3 md:grid-cols-3">
+          <PromptViewButton
+            active={view === "all"}
+            count={prompts.length}
+            icon={GitBranch}
+            label="All"
+            onClick={() => setView("all")}
+          />
+          <PromptViewButton
+            active={view === "commands"}
+            count={commandPrompts.length}
+            icon={FileText}
+            label="Commands"
+            onClick={() => setView("commands")}
+          />
+          <PromptViewButton
+            active={view === "agents"}
+            count={agentPrompts.length}
+            icon={Bot}
+            label="Agents"
+            onClick={() => setView("agents")}
+          />
+        </div>
       </header>
 
       {prompts.length === 0 && (
         <StateMessage message="No prompts available." />
       )}
 
-      <div className="mt-8 grid gap-4 md:grid-cols-2">
-        {prompts.map((prompt) => (
-          <article
-            className="group flex min-h-[200px] flex-col border border-neutral-200 bg-white p-6 shadow-sm transition-colors duration-300 hover:bg-neutral-50/80"
-            key={prompt.filename}
-          >
-            <div className="flex items-center gap-2 text-[13px] font-medium text-neutral-500">
-              <FileText className="h-4 w-4" />
-              Command Prompt
+      <div className="mt-8 space-y-10">
+        {Object.entries(groupedPrompts).map(([group, groupPrompts]) => (
+          <section key={group}>
+            <SectionHeader group={group} count={groupPrompts.length} />
+            <div className="grid gap-4 md:grid-cols-2">
+              {groupPrompts.map((prompt) => (
+                <article
+                  className="group flex min-h-[200px] flex-col border border-neutral-200 bg-white p-6 transition-colors duration-300 hover:bg-neutral-50/80"
+                  key={prompt.filename}
+                >
+                  <div className="flex items-center gap-2 text-[13px] font-medium text-neutral-500">
+                    {prompt.group === "agents" ? <Bot className="h-4 w-4" /> : <FileText className="h-4 w-4" />}
+                    {prompt.group === "agents" ? "Agent Prompt" : "Command Prompt"}
+                  </div>
+                  <button
+                    className="mt-4 block text-left font-serif text-xl font-normal tracking-tight leading-tight text-neutral-900 transition-colors hover:text-neutral-600"
+                    onClick={() => navigate(`/prompts/${prompt.filename}`)}
+                    type="button"
+                  >
+                    {prompt.title}
+                  </button>
+                  <p className="mt-3 flex-1 font-serif text-sm leading-6 text-neutral-600">
+                    {prompt.purpose}
+                  </p>
+                  <p className="mt-5 font-mono text-[11px] text-neutral-400">
+                    prompts/{prompt.filename}
+                  </p>
+                </article>
+              ))}
             </div>
-            <button
-              className="mt-4 block text-left font-serif text-xl font-normal tracking-tight leading-tight text-neutral-900 transition-colors hover:text-neutral-600"
-              onClick={() => navigate(`/prompts/${prompt.filename}`)}
-              type="button"
-            >
-              {prompt.title}
-            </button>
-            <p className="mt-3 flex-1 font-serif text-sm leading-6 text-neutral-600">
-              {prompt.purpose}
-            </p>
-          </article>
+          </section>
         ))}
       </div>
     </section>
+  );
+}
+
+function PromptViewButton({ active, count, icon: Icon, label, onClick }) {
+  return (
+    <button
+      className={[
+        "border px-4 py-3 text-left transition-colors",
+        active
+          ? "border-neutral-900 bg-neutral-900 text-white"
+          : "border-neutral-200 bg-white text-neutral-600 hover:border-neutral-300 hover:bg-neutral-50"
+      ].join(" ")}
+      onClick={onClick}
+      type="button"
+    >
+      <span className="flex items-center justify-between gap-3">
+        <span className="inline-flex items-center gap-2 text-[13px] font-medium">
+          <Icon className="h-4 w-4" />
+          {label}
+        </span>
+        <span className={active ? "font-mono text-[12px] text-neutral-300" : "font-mono text-[12px] text-neutral-400"}>
+          {count}
+        </span>
+      </span>
+    </button>
+  );
+}
+
+function SectionHeader({ group, count }) {
+  const isAgents = group === "agents";
+
+  return (
+    <div className="mb-4 border-b border-neutral-200 pb-4">
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex items-center gap-2 text-[12px] font-medium uppercase tracking-widest text-neutral-500">
+          {isAgents ? <Bot className="h-4 w-4" /> : <FileText className="h-4 w-4" />}
+          {isAgents ? "Agent Files" : "Command Prompts"}
+        </div>
+        <span className="font-mono text-[11px] text-neutral-400">{count} files</span>
+      </div>
+      {isAgents && (
+        <p className="mt-3 max-w-2xl text-sm leading-6 text-neutral-600">
+          Agent files define the workflow roles: routing, questioning, research, writing, review, and publishing. They are not output templates; they control how command prompts get executed.
+        </p>
+      )}
+    </div>
   );
 }

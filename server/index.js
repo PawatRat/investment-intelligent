@@ -172,6 +172,102 @@ async function listPosts() {
   return posts.sort((a, b) => new Date(b.date || 0) - new Date(a.date || 0));
 }
 
+async function scanAllMarkdown() {
+  const items = [];
+
+  // Scan posts
+  await fs.mkdir(postsDir, { recursive: true });
+  const postFiles = await fs.readdir(postsDir);
+  for (const file of postFiles.filter((f) => f.endsWith(".md"))) {
+    const source = await fs.readFile(path.join(postsDir, file), "utf8");
+    const { data } = parseFrontMatter(source);
+    const slug = data.slug?.trim() || file.replace(/\.md$/, "");
+    items.push({
+      path: `content/posts/${file}`,
+      slug,
+      title: data.title || slug,
+      description: data.description || "",
+      date: data.date || "",
+      tags: Array.isArray(data.tags) ? data.tags : [],
+      tickers: Array.isArray(data.tickers) ? data.tickers : [],
+      type: "post",
+      kind: "Post"
+    });
+  }
+
+  // Scan stocks
+  await fs.mkdir(stocksDir, { recursive: true });
+  const stockEntries = await fs.readdir(stocksDir, { withFileTypes: true });
+  const stockDirs = stockEntries.filter((e) => e.isDirectory()).map((e) => e.name);
+
+  for (const ticker of stockDirs) {
+    const dir = path.join(stocksDir, ticker);
+    const files = await fs.readdir(dir);
+    for (const file of files.filter((f) => f.endsWith(".md"))) {
+      const source = await fs.readFile(path.join(dir, file), "utf8");
+      const { data } = parseFrontMatter(source);
+      const isThesis = file === "thesis.md";
+      items.push({
+        path: `content/stocks/${ticker}/${file}`,
+        slug: file.replace(/\.md$/, ""),
+        title: isThesis
+          ? `${data.company || ticker} Thesis`
+          : (data.title || file.replace(/\.md$/, "").replace(/^\d{4}-\d{2}-\d{2}-/, "")),
+        description: data.summary || data.theme || "",
+        date: data.date || data.updated || "",
+        tags: Array.isArray(data.labels) ? data.labels : [],
+        tickers: [data.ticker || ticker],
+        type: "stock",
+        kind: isThesis ? "Thesis" : (data.type || "Note"),
+        ticker,
+        status: data.status || "",
+        conviction: data.conviction || ""
+      });
+    }
+  }
+
+  return items.sort((a, b) => new Date(b.date || 0) - new Date(a.date || 0));
+}
+
+async function listPromptFiles(directory = promptsDir, prefix = "") {
+  await fs.mkdir(directory, { recursive: true });
+  const entries = await fs.readdir(directory, { withFileTypes: true });
+  const files = await Promise.all(
+    entries
+      .sort((a, b) => a.name.localeCompare(b.name))
+      .map(async (entry) => {
+        const relativePath = prefix ? `${prefix}/${entry.name}` : entry.name;
+        const fullPath = path.join(directory, entry.name);
+
+        if (entry.isDirectory()) {
+          return listPromptFiles(fullPath, relativePath);
+        }
+
+        if (!entry.isFile() || !entry.name.endsWith(".md") || entry.name === "README.md") {
+          return [];
+        }
+
+        return [relativePath];
+      })
+  );
+
+  return files.flat();
+}
+
+function resolvePromptPath(filename) {
+  const normalizedFilename = path.normalize(String(filename || "")).replace(/^(\.\.(\/|\\|$))+/, "");
+  const resolvedPath = path.resolve(promptsDir, normalizedFilename);
+  const promptsRoot = path.resolve(promptsDir);
+
+  if (!resolvedPath.startsWith(`${promptsRoot}${path.sep}`) || !normalizedFilename.endsWith(".md")) {
+    const error = new Error("Prompt not found");
+    error.code = "ENOENT";
+    throw error;
+  }
+
+  return { filename: normalizedFilename.split(path.sep).join("/"), filePath: resolvedPath };
+}
+
 async function listStockTheses() {
   await fs.mkdir(stocksDir, { recursive: true });
   const entries = await fs.readdir(stocksDir, { withFileTypes: true });
@@ -1621,18 +1717,18 @@ app.get("/api/stocks/:ticker", async (request, response, next) => {
 
 app.get("/api/prompts", async (_request, response, next) => {
   try {
-    await fs.mkdir(promptsDir, { recursive: true });
-    const files = await fs.readdir(promptsDir);
-    const mdFiles = files.filter((f) => f.endsWith(".md") && f !== "README.md");
+    const mdFiles = await listPromptFiles();
 
     const prompts = await Promise.all(
       mdFiles.map(async (filename) => {
-        const source = await fs.readFile(path.join(promptsDir, filename), "utf8");
+        const { filePath } = resolvePromptPath(filename);
+        const source = await fs.readFile(filePath, "utf8");
         const firstLine = source.split("\n").find((l) => l.startsWith("# "));
         const purposeLine = source.split("\n").find((l) => l.includes("**Purpose:**"));
         const title = firstLine ? firstLine.replace(/^#\s+/, "") : filename.replace(".md", "");
         const purpose = purposeLine ? purposeLine.replace(/\*\*Purpose:\*\*\s*/, "") : "";
-        return { filename, title, purpose };
+        const group = filename.includes("/") ? filename.split("/")[0] : "general";
+        return { filename, title, purpose, group };
       })
     );
 
@@ -1642,14 +1738,14 @@ app.get("/api/prompts", async (_request, response, next) => {
   }
 });
 
-app.get("/api/prompts/:filename", async (request, response, next) => {
+app.get("/api/prompts/*", async (request, response, next) => {
   try {
-    const filePath = path.join(promptsDir, request.params.filename);
+    const { filename, filePath } = resolvePromptPath(request.params[0]);
     const source = await fs.readFile(filePath, "utf8");
     const firstLine = source.split("\n").find((l) => l.startsWith("# "));
-    const title = firstLine ? firstLine.replace(/^#\s+/, "") : request.params.filename;
+    const title = firstLine ? firstLine.replace(/^#\s+/, "") : filename;
 
-    response.json({ filename: request.params.filename, title, markdown: source });
+    response.json({ filename, title, markdown: source });
   } catch (error) {
     if (error.code === "ENOENT") {
       response.status(404).json({ error: "Prompt not found" });
@@ -1668,6 +1764,15 @@ app.get("/api/posts", async (_request, response, next) => {
         readingMinutes: Math.max(1, Math.ceil(body.split(/\s+/).length / 180))
       }))
     );
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.get("/api/content", async (_request, response, next) => {
+  try {
+    const items = await scanAllMarkdown();
+    response.json(items);
   } catch (error) {
     next(error);
   }
