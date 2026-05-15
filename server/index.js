@@ -1728,7 +1728,40 @@ app.get("/api/prompts", async (_request, response, next) => {
         const title = firstLine ? firstLine.replace(/^#\s+/, "") : filename.replace(".md", "");
         const purpose = purposeLine ? purposeLine.replace(/\*\*Purpose:\*\*\s*/, "") : "";
         const group = filename.includes("/") ? filename.split("/")[0] : "general";
-        return { filename, title, purpose, group };
+
+        // Parse file interactions summary
+        const fileInteractionsMatch = source.match(/## File Interactions\s*([\s\S]*?)(?=\n## |\n# |$)/);
+        let readsCount = 0;
+        let writesCount = 0;
+        let externalCount = 0;
+
+        if (fileInteractionsMatch) {
+          const fiContent = fileInteractionsMatch[1];
+          const readsMatch = fiContent.match(/\*\*Reads:\*\*/);
+          const writesMatch = fiContent.match(/\*\*Writes:\*\*/);
+          const externalMatch = fiContent.match(/\*\*External:\*\*/);
+
+          if (readsMatch) {
+            const readsSection = fiContent.slice(readsMatch.index).match(/\*\*Reads:\*\*\s*([\s\S]*?)(?=\*\*Writes:|\*\*External:|$)/);
+            if (readsSection) {
+              readsCount = readsSection[1].split("\n").filter((l) => l.trim().startsWith("- ")).length;
+            }
+          }
+          if (writesMatch) {
+            const writesSection = fiContent.slice(writesMatch.index).match(/\*\*Writes:\*\*\s*([\s\S]*?)(?=\*\*External:|$)/);
+            if (writesSection) {
+              writesCount = writesSection[1].split("\n").filter((l) => l.trim().startsWith("- ")).length;
+            }
+          }
+          if (externalMatch) {
+            const externalSection = fiContent.slice(externalMatch.index).match(/\*\*External:\*\*\s*([\s\S]*)/);
+            if (externalSection) {
+              externalCount = externalSection[1].split("\n").filter((l) => l.trim().startsWith("- ")).length;
+            }
+          }
+        }
+
+        return { filename, title, purpose, group, readsCount, writesCount, externalCount };
       })
     );
 

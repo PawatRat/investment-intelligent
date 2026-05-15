@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { ArrowLeft, Bot, FileText, GitBranch } from "lucide-react";
+import { ArrowLeft, Bot, FileInput, FileOutput, FileText, GitBranch, Globe } from "lucide-react";
 import StateMessage from "../../components/StateMessage.jsx";
 import { fetchPrompts } from "./api.js";
 
@@ -127,9 +127,33 @@ export default function PromptsIndex({ navigate }) {
                   <p className="mt-3 flex-1 font-serif text-sm leading-6 text-neutral-600">
                     {prompt.purpose}
                   </p>
-                  <p className="mt-5 font-mono text-[11px] text-neutral-400">
-                    prompts/{prompt.filename}
-                  </p>
+                  <div className="mt-5 flex flex-wrap items-center gap-3">
+                    <p className="font-mono text-[11px] text-neutral-400">
+                      prompts/{prompt.filename}
+                    </p>
+                    {(prompt.readsCount > 0 || prompt.writesCount > 0 || prompt.externalCount > 0) && (
+                      <div className="flex items-center gap-2">
+                        {prompt.readsCount > 0 && (
+                          <span className="inline-flex items-center gap-1 text-[10px] text-neutral-500" title="Files read">
+                            <FileInput className="h-3 w-3" />
+                            {prompt.readsCount}
+                          </span>
+                        )}
+                        {prompt.writesCount > 0 && (
+                          <span className="inline-flex items-center gap-1 text-[10px] text-neutral-500" title="Files written">
+                            <FileOutput className="h-3 w-3" />
+                            {prompt.writesCount}
+                          </span>
+                        )}
+                        {prompt.externalCount > 0 && (
+                          <span className="inline-flex items-center gap-1 text-[10px] text-neutral-500" title="External sources">
+                            <Globe className="h-3 w-3" />
+                            {prompt.externalCount}
+                          </span>
+                        )}
+                      </div>
+                    )}
+                  </div>
                 </article>
               ))}
             </div>
