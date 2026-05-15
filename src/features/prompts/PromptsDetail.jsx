@@ -73,68 +73,82 @@ export default function PromptsDetail({ filename, navigate }) {
   }
 
   return (
-    <>
-      <ArticleNav headings={headings} />
-      {workflow && (
-        <div className="relative z-10 mx-auto max-w-4xl px-5 pt-6 min-[720px]:ml-56 min-[720px]:mr-5 xl:mx-auto xl:p-0">
-          <WorkflowPanel className="xl:fixed xl:left-[calc(50%+30rem)] xl:top-28 xl:z-10 xl:w-64" workflow={workflow} />
-        </div>
-      )}
-
-      <article className="relative z-10 mx-auto max-w-4xl px-5 py-12 min-[720px]:ml-56 min-[720px]:mr-5 xl:mx-auto">
-      <BackButton navigate={navigate} />
-      <header className="border-b border-neutral-200 pb-12">
-        <div className="mb-4 inline-flex items-center gap-2 border border-neutral-200 px-3 py-1.5 text-[11px] font-medium tracking-widest text-neutral-500 uppercase">
-          <Terminal className="h-3 w-3" />
-          Command Prompt
-        </div>
-        <h1 className="font-serif text-4xl font-normal tracking-tight text-neutral-900 md:text-5xl">
-          {prompt.title}
-        </h1>
-        <p className="mt-5 text-base leading-7 text-neutral-600">
-          File: <span className="font-mono text-sm text-neutral-900">{filename}</span>
-        </p>
-      </header>
-
-      <div className="mt-12">
-        <div className="prose-core">
-          {renderedSections.map((section, index) => {
-            if (section.type === "chart") {
-              return (
-                <Suspense
-                  fallback={<div className="chart-shell">Loading chart...</div>}
-                  key={`chart-${index}`}
-                >
-                  <ChartBlock config={section.config} />
-                </Suspense>
-              );
-            }
-            return (
-              <div
-                key={`md-${index}`}
-                dangerouslySetInnerHTML={{ __html: section.html }}
-              />
-            );
-          })}
+    <div className="relative z-10 mx-auto max-w-[90rem] px-5 py-8 lg:py-12">
+      {/* Three-column layout on wide screens */}
+      <div className="lg:grid lg:grid-cols-[14rem_1fr] lg:gap-8 xl:grid-cols-[14rem_1fr_16rem] xl:gap-10">
+        
+        {/* Left: ArticleNav */}
+        <div className="hidden lg:block">
+          <div className="sticky top-28">
+            <ArticleNav headings={headings} />
+          </div>
         </div>
 
-        <div className="mt-12 border border-neutral-200 bg-neutral-50 p-6">
-          <p className="text-[13px] font-medium uppercase tracking-wider text-neutral-500">
-            How to run this prompt
-          </p>
-          <p className="mt-3 text-sm leading-6 text-neutral-600">
-            Ask an agent:{" "}
-            <span className="font-mono text-neutral-900">
-              &ldquo;Run prompts/{filename}&rdquo;
-            </span>
-          </p>
-          <p className="mt-1 text-sm leading-6 text-neutral-500">
-            The agent will read this template, gather data, and POST the result to the site as a new post.
-          </p>
-        </div>
+        {/* Center: Content */}
+        <article className="min-w-0">
+          <BackButton navigate={navigate} />
+          <header className="border-b border-neutral-200 pb-12">
+            <div className="mb-4 inline-flex items-center gap-2 border border-neutral-200 px-3 py-1.5 text-[11px] font-medium tracking-widest text-neutral-500 uppercase">
+              <Terminal className="h-3 w-3" />
+              Command Prompt
+            </div>
+            <h1 className="font-serif text-4xl font-normal tracking-tight text-neutral-900 md:text-5xl">
+              {prompt.title}
+            </h1>
+            <p className="mt-5 text-base leading-7 text-neutral-600">
+              File: <span className="font-mono text-sm text-neutral-900">{filename}</span>
+            </p>
+          </header>
+
+          <div className="mt-12">
+            <div className="prose-core">
+              {renderedSections.map((section, index) => {
+                if (section.type === "chart") {
+                  return (
+                    <Suspense
+                      fallback={<div className="chart-shell">Loading chart...</div>}
+                      key={`chart-${index}`}
+                    >
+                      <ChartBlock config={section.config} />
+                    </Suspense>
+                  );
+                }
+                return (
+                  <div
+                    key={`md-${index}`}
+                    dangerouslySetInnerHTML={{ __html: section.html }}
+                  />
+                );
+              })}
+            </div>
+
+            <div className="mt-12 border border-neutral-200 bg-neutral-50 p-6">
+              <p className="text-[13px] font-medium uppercase tracking-wider text-neutral-500">
+                How to run this prompt
+              </p>
+              <p className="mt-3 text-sm leading-6 text-neutral-600">
+                Ask an agent:{" "}
+                <span className="font-mono text-neutral-900">
+                  &ldquo;Run prompts/{filename}&rdquo;
+                </span>
+              </p>
+              <p className="mt-1 text-sm leading-6 text-neutral-500">
+                The agent will read this template, gather data, and POST the result to the site as a new post.
+              </p>
+            </div>
+          </div>
+        </article>
+
+        {/* Right: Workflow Panel — hidden on < xl, sticky on xl */}
+        {workflow && (
+          <div className="mt-10 xl:mt-0">
+            <div className="xl:sticky xl:top-28">
+              <WorkflowPanel workflow={workflow} />
+            </div>
+          </div>
+        )}
       </div>
-    </article>
-    </>
+    </div>
   );
 }
 
@@ -149,7 +163,7 @@ function parseAgentWorkflow(markdown) {
     .split("->")
     .map((step) => step.trim())
     .filter(Boolean);
-  const depth = content.match(/Questioner depth:\s*([^.\n]+)/)?.[1]?.trim() || "";
+  const depth = content.match(/Questioner depth:\s*([^\.\n]+)/)?.[1]?.trim() || "";
   const target = content.match(/Publisher target:\s*`([^`]+)`/)?.[1] || "";
 
   if (!type && chain.length === 0 && !depth && !target) return null;
@@ -157,9 +171,9 @@ function parseAgentWorkflow(markdown) {
   return { type, chain, depth, target };
 }
 
-function WorkflowPanel({ className = "", workflow }) {
+function WorkflowPanel({ workflow }) {
   return (
-    <aside className={["border border-neutral-200 bg-white p-4", className].filter(Boolean).join(" ")}>
+    <aside className="border border-neutral-200 bg-white p-4">
       <div className="flex items-center gap-2 border-b border-neutral-200 pb-3 text-[11px] font-medium uppercase tracking-widest text-neutral-500">
         <GitBranch className="h-3.5 w-3.5" />
         Workflow
