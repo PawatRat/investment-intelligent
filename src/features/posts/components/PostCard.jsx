@@ -16,6 +16,9 @@ export default function PostCard({ post, navigate }) {
       >
         {post.title}
       </button>
+      {post.path && (
+        <p className="mt-1.5 font-mono text-[11px] leading-4 text-neutral-400">{post.path}</p>
+      )}
       <p className="mt-3 flex-1 font-serif text-sm leading-6 text-neutral-700">{post.description}</p>
       <TagList tags={post.tags} />
     </article>
