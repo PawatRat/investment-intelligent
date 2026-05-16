@@ -10,6 +10,7 @@ const rootDir = path.resolve(__dirname, "..");
 const postsDir = path.join(rootDir, "content", "posts");
 const promptsDir = path.join(rootDir, "prompts");
 const stocksDir = path.join(rootDir, "content", "stocks");
+const investmentStyleFile = path.join(rootDir, "content", "investment-style.md");
 const uploadsDir = path.join(rootDir, "public", "uploads");
 const activitiesFile = path.join(rootDir, "activities_portfolio.csv");
 const portfolioCacheDir = path.join(rootDir, ".cache", "portfolio");
@@ -1782,6 +1783,21 @@ app.get("/api/prompts/*", async (request, response, next) => {
   } catch (error) {
     if (error.code === "ENOENT") {
       response.status(404).json({ error: "Prompt not found" });
+      return;
+    }
+    next(error);
+  }
+});
+
+app.get("/api/investment-style", async (_request, response, next) => {
+  try {
+    const markdown = await fs.readFile(investmentStyleFile, "utf8");
+    const title = markdown.split("\n").find((line) => line.startsWith("# "))?.replace(/^#\s+/, "") || "Investment Style";
+    const updated = markdown.match(/^Updated:\s*(.+)$/m)?.[1] || "";
+    response.json({ title, updated, markdown });
+  } catch (error) {
+    if (error.code === "ENOENT") {
+      response.status(404).json({ error: "Investment style not found" });
       return;
     }
     next(error);

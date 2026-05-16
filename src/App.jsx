@@ -6,6 +6,7 @@ import PostIndex from "./features/posts/PostIndex.jsx";
 import PromptsIndex from "./features/prompts/PromptsIndex.jsx";
 import StocksIndex from "./features/stocks/StocksIndex.jsx";
 import ActivitiesIndex from "./features/stocks/ActivitiesIndex.jsx";
+import InvestmentStylePage from "./features/investment/InvestmentStylePage.jsx";
 import PortfolioIndex from "./features/stocks/PortfolioIndex.jsx";
 import StockGraphPage from "./features/stocks/StockGraphPage.jsx";
 import { useRoute } from "./lib/router.js";
@@ -67,6 +68,16 @@ export default function App() {
         <DotField />
         <SiteHeader navigate={navigate} />
         <PortfolioIndex navigate={navigate} />
+      </main>
+    );
+  }
+
+  if (path === "/investment-style") {
+    return (
+      <main className="min-h-screen bg-white text-black">
+        <DotField />
+        <SiteHeader navigate={navigate} />
+        <InvestmentStylePage navigate={navigate} />
       </main>
     );
   }
