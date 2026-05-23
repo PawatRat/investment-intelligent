@@ -10,6 +10,7 @@ Posts live as `.md` files with front matter. The frontend reads from the API. St
 - **Browse by view.** Grid, timeline, and Obsidian-style graph views on the index.
 - **Rich content.** Markdown with Mermaid diagrams, Recharts chart blocks, code highlighting, and tables.
 - **Track stocks.** Each ticker gets a permanent thesis page, timeline of research notes, and linked portfolio posts.
+- **Screen macro themes.** A local screener maps macro factors to themes, candidate stocks, and portfolio exposure without live data feeds.
 - **Agent prompts.** Reusable templates an AI agent can run to gather data, analyze stocks, and publish posts.
 - **Backend publishing.** POST posts and upload images via the API. The browser only reads.
 
@@ -33,6 +34,7 @@ npm run dev
 | `/posts/:slug` | Single post |
 | `/stocks` | Stock dashboard |
 | `/stocks/:ticker` | Stock detail (thesis, timeline, related posts) |
+| `/screener` | Macro factor, theme, candidate, and portfolio exposure screener |
 | `/prompts` | Prompt templates browser |
 
 ## Create A Post
@@ -85,6 +87,18 @@ labels: ["core-holding", "ai", "cloud", "mega-cap"]
 ```
 
 Timeline notes connect to the stock page and show in date order. Portfolio-wide posts with a `tickers: ["MSFT", "META"]` field appear as related posts.
+
+## Macro Screener
+
+The `/screener` route reads `content/screener/config.json` and renders a top-down investment map:
+
+- macro regime and risk level
+- macro factors, states, trends, and impacted themes
+- theme matrix with beneficiaries and risks
+- candidate table with explicit 1-5 judgment scores
+- portfolio exposure by macro theme
+
+The screener is intentionally not a news feed. News summaries belong in posts and stock timeline notes. Screener data is local-only and can be updated manually or by an agent.
 
 ## Charts
 

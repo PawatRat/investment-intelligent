@@ -6,5 +6,6 @@ npm-debug.log*
 /prompts/
 /content/posts/
 /content/stocks/
+/content/screener/
 /public/uploads/
 activities_portfolio.csv

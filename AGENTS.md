@@ -39,6 +39,7 @@ Backend (Express, port 3001)
   ├── GET  /api/prompts            → lists all prompt templates
   ├── GET  /api/prompts/:filename  → single prompt (includes markdown)
   ├── GET  /api/stocks             → lists all stock theses
+  ├── GET  /api/screener           → macro regime + themes + candidates
   ├── GET  /api/stocks/:ticker     → thesis + timeline + related posts
   └── GET  /api/stocks/:ticker/timeline → timeline notes only
 ```
@@ -53,6 +54,7 @@ Backend (Express, port 3001)
 | `/prompts/:filename` | PromptsDetail | Yes |
 | `/stocks` | StocksIndex (dashboard) | No |
 | `/stocks/:ticker` | StockDetail | Yes |
+| `/screener` | ScreenerIndex (macro/theme decision layer) | No |
 
 ---
 
@@ -80,6 +82,7 @@ The Vite dev server proxies `/api` and `/uploads` to the backend. No CORS setup 
 ```txt
 content/posts/               ← Markdown posts live here (file-based CMS, local only)
 content/stocks/<TICKER>/     ← Stock thesis + timeline notes (local only)
+content/screener/config.json ← Macro screener config (local only)
 prompts/                     ← Agent prompt templates (local only)
 public/uploads/              ← uploaded images (local only)
 docs/                        ← Development plans and design reviews
@@ -131,6 +134,11 @@ src/
     StocksIndex.jsx          ← dashboard with filterable table
     StockDetail.jsx          ← thesis + timeline + related posts (lazy-loaded)
     StockNoteDetail.jsx      ← individual timeline note detail
+
+  features/screener/         ← macro-to-investment decision layer
+    api.js                   ← fetchScreener()
+    hooks.js                 ← useScreener()
+    ScreenerIndex.jsx        ← regime, factors, themes, candidates, exposure
 ```
 
 ---
@@ -182,6 +190,7 @@ All API base URLs are relative (`/api/...`), proxied through Vite in dev.
 | `fetchPrompt(filename)` | `GET /api/prompts/:filename` |
 | `fetchStocks()` | `GET /api/stocks` |
 | `fetchStock(ticker)` | `GET /api/stocks/:ticker` |
+| `fetchScreener()` | `GET /api/screener` |
 
 ### Styling
 
@@ -240,8 +249,13 @@ These are loaded via `@font-face` in `styles.css` at the very top, before Tailwi
 The following folders are in `.gitignore` and never pushed to GitHub:
 - `content/posts/` — your blog posts
 - `content/stocks/` — your stock theses and timeline notes
+- `content/screener/` — your macro screener config
 - `prompts/` — your agent prompt templates
 - `public/uploads/` — your uploaded images
+
+### Macro Screener
+
+The screener is a top-down investment map, not a news digest. It reads `content/screener/config.json` and renders macro regime, factor trends, theme exposure, stock candidates, and portfolio exposure. Do not add raw news feeds, article summaries, scraping, or live macro data retrieval to the screener. News belongs in posts and stock timeline notes.
 
 ### Tailwind Content Path
 

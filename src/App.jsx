@@ -9,6 +9,7 @@ import ActivitiesIndex from "./features/stocks/ActivitiesIndex.jsx";
 import InvestmentStylePage from "./features/investment/InvestmentStylePage.jsx";
 import PortfolioIndex from "./features/stocks/PortfolioIndex.jsx";
 import StockGraphPage from "./features/stocks/StockGraphPage.jsx";
+import ScreenerIndex from "./features/screener/ScreenerIndex.jsx";
 import { useRoute } from "./lib/router.js";
 
 const PostDetail = lazy(() => import("./features/posts/PostDetail.jsx"));
@@ -68,6 +69,16 @@ export default function App() {
         <DotField />
         <SiteHeader navigate={navigate} />
         <PortfolioIndex navigate={navigate} />
+      </main>
+    );
+  }
+
+  if (path === "/screener") {
+    return (
+      <main className="min-h-screen bg-white text-black">
+        <DotField />
+        <SiteHeader navigate={navigate} />
+        <ScreenerIndex navigate={navigate} />
       </main>
     );
   }

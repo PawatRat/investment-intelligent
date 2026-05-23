@@ -10,6 +10,8 @@ const rootDir = path.resolve(__dirname, "..");
 const postsDir = path.join(rootDir, "content", "posts");
 const promptsDir = path.join(rootDir, "prompts");
 const stocksDir = path.join(rootDir, "content", "stocks");
+const screenerDir = path.join(rootDir, "content", "screener");
+const screenerConfigFile = path.join(screenerDir, "config.json");
 const investmentStyleFile = path.join(rootDir, "content", "investment-style.md");
 const uploadsDir = path.join(rootDir, "public", "uploads");
 const activitiesFile = path.join(rootDir, "activities_portfolio.csv");
@@ -296,6 +298,84 @@ async function listStockTheses() {
   );
 
   return stocks;
+}
+
+function emptyScreener() {
+  return {
+    updated: "",
+    regime: {
+      name: "No macro regime configured",
+      summary: "Create content/screener/config.json to define macro factors, themes, candidates, and portfolio exposure.",
+      riskLevel: "unknown"
+    },
+    macroFactors: [],
+    themes: [],
+    candidates: [],
+    portfolioExposure: [],
+    knownTickers: []
+  };
+}
+
+function asArray(value) {
+  return Array.isArray(value) ? value : [];
+}
+
+async function readScreener() {
+  let config;
+  try {
+    const source = await fs.readFile(screenerConfigFile, "utf8");
+    config = JSON.parse(source);
+  } catch (error) {
+    if (error.code === "ENOENT") {
+      return emptyScreener();
+    }
+    throw error;
+  }
+
+  const stocks = await listStockTheses();
+  const stockMap = new Map(stocks.map((stock) => [normalizeTicker(stock.ticker), stock]));
+
+  const candidates = asArray(config.candidates).map((candidate) => {
+    const ticker = normalizeTicker(candidate.ticker);
+    const stock = stockMap.get(ticker);
+    return {
+      ...candidate,
+      ticker,
+      company: candidate.company || stock?.company || ticker,
+      status: candidate.status || stock?.status || "",
+      theme: candidate.theme || stock?.theme || "",
+      sector: stock?.sector || "",
+      conviction: stock?.conviction || "",
+      labels: stock?.labels || [],
+      updated: stock?.updated || "",
+      existingStock: Boolean(stock)
+    };
+  });
+
+  return {
+    updated: config.updated || "",
+    regime: {
+      name: config.regime?.name || "No macro regime configured",
+      summary: config.regime?.summary || "",
+      riskLevel: config.regime?.riskLevel || "unknown"
+    },
+    macroFactors: asArray(config.macroFactors).map((factor) => ({
+      ...factor,
+      themes: asArray(factor.themes)
+    })),
+    themes: asArray(config.themes).map((theme) => ({
+      ...theme,
+      macroDrivers: asArray(theme.macroDrivers),
+      beneficiaries: asArray(theme.beneficiaries).map(normalizeTicker).filter(Boolean),
+      risks: asArray(theme.risks)
+    })),
+    candidates,
+    portfolioExposure: asArray(config.portfolioExposure).map((exposure) => ({
+      ...exposure,
+      tickers: asArray(exposure.tickers).map(normalizeTicker).filter(Boolean)
+    })),
+    knownTickers: stocks.map((stock) => normalizeTicker(stock.ticker)).filter(Boolean).sort()
+  };
 }
 
 async function readStockTimeline(ticker) {
@@ -1563,6 +1643,15 @@ app.get("/api/stocks", async (_request, response, next) => {
       })
     );
     response.json(enriched);
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.get("/api/screener", async (_request, response, next) => {
+  try {
+    const screener = await readScreener();
+    response.json(screener);
   } catch (error) {
     next(error);
   }
