@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { fetchScreener } from "./api.js";
 
 export function useScreener() {
@@ -6,15 +6,26 @@ export function useScreener() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
-  useEffect(() => {
-    let ignore = false;
-    const controller = new AbortController();
-    fetchScreener(controller.signal)
-      .then((data) => { if (!ignore) setScreener(data); })
-      .catch((e) => { if (!ignore && e.name !== "AbortError") setError(e.message); })
-      .finally(() => { if (!ignore) setLoading(false); });
-    return () => { ignore = true; controller.abort(); };
+  const load = useCallback((signal, ignoreRef = { current: false }) => {
+    setLoading(true);
+    setError("");
+    fetchScreener(signal)
+      .then((data) => { if (!ignoreRef.current) setScreener(data); })
+      .catch((e) => { if (!ignoreRef.current && e.name !== "AbortError") setError(e.message); })
+      .finally(() => { if (!ignoreRef.current) setLoading(false); });
   }, []);
 
-  return { screener, loading, error };
+  useEffect(() => {
+    const controller = new AbortController();
+    const ignoreRef = { current: false };
+    load(controller.signal, ignoreRef);
+    return () => { ignoreRef.current = true; controller.abort(); };
+  }, [load]);
+
+  function refetch() {
+    const controller = new AbortController();
+    load(controller.signal);
+  }
+
+  return { screener, loading, error, refetch };
 }

@@ -100,6 +100,13 @@ The `/screener` route reads `content/screener/config.json` and renders a top-dow
 
 The screener is intentionally not a news feed. News summaries belong in posts and stock timeline notes. Screener data is local-only and can be updated manually or by an agent.
 
+Interactive discovery uses:
+
+- `POST /api/screener/discovery-request` to save the research brief
+- `GET /api/screener/discovery-results` to read agent-generated suggestions
+- `POST /api/screener/apply-suggestions` to merge suggestions into `config.json`
+- `prompts/theme-discovery.md` as the agent-run research workflow
+
 ## Charts
 
 Posts and prompts support fenced `chart` blocks in `bar`, `line`, and `pie` types:

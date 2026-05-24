@@ -12,6 +12,8 @@ const promptsDir = path.join(rootDir, "prompts");
 const stocksDir = path.join(rootDir, "content", "stocks");
 const screenerDir = path.join(rootDir, "content", "screener");
 const screenerConfigFile = path.join(screenerDir, "config.json");
+const screenerDiscoveryRequestFile = path.join(screenerDir, "discovery-request.json");
+const screenerDiscoveryResultsFile = path.join(screenerDir, "discovery-results.json");
 const investmentStyleFile = path.join(rootDir, "content", "investment-style.md");
 const uploadsDir = path.join(rootDir, "public", "uploads");
 const activitiesFile = path.join(rootDir, "activities_portfolio.csv");
@@ -312,6 +314,9 @@ function emptyScreener() {
     themes: [],
     candidates: [],
     portfolioExposure: [],
+    riskFlags: [],
+    evidence: [],
+    discoveryRequest: emptyDiscoveryRequest(),
     knownTickers: []
   };
 }
@@ -320,20 +325,82 @@ function asArray(value) {
   return Array.isArray(value) ? value : [];
 }
 
-async function readScreener() {
-  let config;
-  try {
-    const source = await fs.readFile(screenerConfigFile, "utf8");
-    config = JSON.parse(source);
-  } catch (error) {
-    if (error.code === "ENOENT") {
-      return emptyScreener();
-    }
-    throw error;
+function emptyDiscoveryRequest() {
+  return {
+    hasRequest: false,
+    requestedAt: "",
+    focusArea: "",
+    customFocus: "",
+    scope: "",
+    horizon: "",
+    output: "",
+    notes: "",
+    status: ""
+  };
+}
+
+function emptyDiscoveryResults() {
+  return {
+    hasResults: false,
+    updated: "",
+    scope: "",
+    summary: "",
+    newThemes: [],
+    changedThemes: [],
+    newCandidates: [],
+    riskFlags: [],
+    evidence: []
+  };
+}
+
+function todayIsoDate() {
+  return new Date().toISOString().slice(0, 10);
+}
+
+function normalizeStringArray(value) {
+  return asArray(value).map((item) => String(item || "").trim()).filter(Boolean);
+}
+
+function normalizeTickerArray(value) {
+  return normalizeStringArray(value).map(normalizeTicker).filter(Boolean);
+}
+
+function normalizeThemeCandidate(value) {
+  const name = String(value?.name || value?.theme || "").trim();
+  const id = String(value?.id || slugify(name)).trim();
+  return {
+    ...value,
+    id,
+    name,
+    macroDrivers: normalizeStringArray(value?.macroDrivers),
+    beneficiaries: normalizeTickerArray(value?.beneficiaries),
+    risks: normalizeStringArray(value?.risks)
+  };
+}
+
+function mergeByKey(existingItems, incomingItems, getKey, normalize = (item) => item) {
+  const map = new Map();
+  for (const item of asArray(existingItems)) {
+    const normalized = normalize(item);
+    const key = getKey(normalized);
+    if (key) map.set(key, normalized);
   }
+  for (const item of asArray(incomingItems)) {
+    const normalized = normalize(item);
+    const key = getKey(normalized);
+    if (!key) continue;
+    map.set(key, { ...(map.get(key) || {}), ...normalized });
+  }
+  return Array.from(map.values());
+}
+
+async function readScreener() {
+  const config = await readJsonFile(screenerConfigFile, null);
+  if (!config) return emptyScreener();
 
   const stocks = await listStockTheses();
   const stockMap = new Map(stocks.map((stock) => [normalizeTicker(stock.ticker), stock]));
+  const discoveryRequest = await readDiscoveryRequest();
 
   const candidates = asArray(config.candidates).map((candidate) => {
     const ticker = normalizeTicker(candidate.ticker);
@@ -374,8 +441,117 @@ async function readScreener() {
       ...exposure,
       tickers: asArray(exposure.tickers).map(normalizeTicker).filter(Boolean)
     })),
+    riskFlags: asArray(config.riskFlags),
+    evidence: asArray(config.evidence),
+    discoveryRequest,
     knownTickers: stocks.map((stock) => normalizeTicker(stock.ticker)).filter(Boolean).sort()
   };
+}
+
+async function readDiscoveryRequest() {
+  const request = await readJsonFile(screenerDiscoveryRequestFile, null);
+  if (!request) return emptyDiscoveryRequest();
+  return {
+    ...emptyDiscoveryRequest(),
+    ...request,
+    hasRequest: true
+  };
+}
+
+async function readDiscoveryResults() {
+  const results = await readJsonFile(screenerDiscoveryResultsFile, null);
+  if (!results) return emptyDiscoveryResults();
+  return {
+    ...emptyDiscoveryResults(),
+    ...results,
+    newThemes: asArray(results.newThemes),
+    changedThemes: asArray(results.changedThemes),
+    newCandidates: asArray(results.newCandidates),
+    riskFlags: asArray(results.riskFlags),
+    evidence: asArray(results.evidence),
+    hasResults: true
+  };
+}
+
+function buildDiscoveryRequest(body) {
+  const focusArea = String(body.focusArea || "All").trim() || "All";
+  const customFocus = String(body.customFocus || "").trim();
+  const horizon = String(body.horizon || "6-12 months").trim();
+  const output = String(body.output || "all").trim();
+  const notes = String(body.notes || "").trim();
+  const scope = focusArea === "custom" ? customFocus : focusArea;
+
+  return {
+    hasRequest: true,
+    requestedAt: new Date().toISOString(),
+    focusArea,
+    customFocus,
+    scope: scope || "All",
+    horizon,
+    output,
+    notes,
+    status: "requested"
+  };
+}
+
+async function applyScreenerSuggestions() {
+  const config = await readJsonFile(screenerConfigFile, {
+    updated: "",
+    regime: {},
+    macroFactors: [],
+    themes: [],
+    candidates: [],
+    portfolioExposure: []
+  });
+  const results = await readDiscoveryResults();
+  if (!results.hasResults) {
+    const error = new Error("No discovery results to apply");
+    error.statusCode = 400;
+    throw error;
+  }
+
+  const nextConfig = {
+    ...config,
+    updated: todayIsoDate(),
+    themes: mergeByKey(
+      config.themes,
+      [...results.newThemes, ...results.changedThemes],
+      (theme) => theme.id || slugify(theme.name),
+      normalizeThemeCandidate
+    ),
+    candidates: mergeByKey(
+      config.candidates,
+      results.newCandidates,
+      (candidate) => normalizeTicker(candidate.ticker),
+      (candidate) => ({
+        ...candidate,
+        ticker: normalizeTicker(candidate.ticker),
+        company: String(candidate.company || "").trim(),
+        status: candidate.status || "watchlist",
+        theme: candidate.theme || "",
+        action: candidate.action || "research"
+      })
+    ),
+    riskFlags: mergeByKey(
+      config.riskFlags,
+      results.riskFlags,
+      (flag) => flag.id || flag.name || flag.summary,
+      (flag) => ({ ...flag, id: flag.id || slugify(flag.name || flag.summary || "") })
+    ),
+    evidence: mergeByKey(
+      config.evidence,
+      results.evidence,
+      (item) => `${item.signalType || ""}:${item.theme || ""}:${item.summary || ""}`,
+      (item) => ({
+        ...item,
+        tickers: normalizeTickerArray(item.tickers),
+        sources: asArray(item.sources)
+      })
+    )
+  };
+
+  await writeJsonFile(screenerConfigFile, nextConfig);
+  return nextConfig;
 }
 
 async function readStockTimeline(ticker) {
@@ -1657,6 +1833,35 @@ app.get("/api/screener", async (_request, response, next) => {
   }
 });
 
+app.post("/api/screener/discovery-request", async (request, response, next) => {
+  try {
+    const discoveryRequest = buildDiscoveryRequest(request.body || {});
+    await writeJsonFile(screenerDiscoveryRequestFile, discoveryRequest);
+    response.status(201).json(discoveryRequest);
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.get("/api/screener/discovery-results", async (_request, response, next) => {
+  try {
+    const results = await readDiscoveryResults();
+    response.json(results);
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.post("/api/screener/apply-suggestions", async (_request, response, next) => {
+  try {
+    await applyScreenerSuggestions();
+    const screener = await readScreener();
+    response.json(screener);
+  } catch (error) {
+    next(error);
+  }
+});
+
 app.get("/api/activities", async (_request, response, next) => {
   try {
     const activityData = await readPortfolioActivities();
@@ -1974,6 +2179,10 @@ app.post("/api/posts", async (request, response, next) => {
 
 app.use((error, _request, response, _next) => {
   console.error(error);
+  if (error.statusCode) {
+    response.status(error.statusCode).json({ error: error.message || "Request failed" });
+    return;
+  }
   response.status(500).json({ error: "Server error" });
 });
 

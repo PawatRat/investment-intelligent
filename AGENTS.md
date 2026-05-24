@@ -40,6 +40,9 @@ Backend (Express, port 3001)
   ├── GET  /api/prompts/:filename  → single prompt (includes markdown)
   ├── GET  /api/stocks             → lists all stock theses
   ├── GET  /api/screener           → macro regime + themes + candidates
+  ├── POST /api/screener/discovery-request → saves a theme discovery brief
+  ├── GET  /api/screener/discovery-results → reads latest discovery suggestions
+  ├── POST /api/screener/apply-suggestions → merges suggestions into config.json
   ├── GET  /api/stocks/:ticker     → thesis + timeline + related posts
   └── GET  /api/stocks/:ticker/timeline → timeline notes only
 ```
@@ -256,6 +259,8 @@ The following folders are in `.gitignore` and never pushed to GitHub:
 ### Macro Screener
 
 The screener is a top-down investment map, not a news digest. It reads `content/screener/config.json` and renders macro regime, factor trends, theme exposure, stock candidates, and portfolio exposure. Do not add raw news feeds, article summaries, scraping, or live macro data retrieval to the screener. News belongs in posts and stock timeline notes.
+
+Interactive discovery is agent-run. The browser saves `content/screener/discovery-request.json`; an agent runs `prompts/theme-discovery.md`, researches external signals, and writes `content/screener/discovery-results.json`; the browser can then apply those suggestions into `config.json`.
 
 ### Tailwind Content Path
 
